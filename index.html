@@ -775,6 +775,9 @@
   </div>
 
   <script>
+    // Configuração da URL da API
+    const API_URL = 'https://idp-devskin.onrender.com/api';
+    
     let sessionId = null;
     let classifications = [];
     let categories = {
@@ -916,7 +919,7 @@
     // Função para carregar categorias do servidor
     async function loadCategories() {
       try {
-        const response = await fetch('/api/categories');
+        const response = await fetch(`${API_URL}/categories`);
         if (response.ok) {
           const data = await response.json();
           categories = data.categories;
@@ -932,7 +935,7 @@
     // Função para salvar categorias no servidor
     async function saveCategories() {
       try {
-        const response = await fetch('/api/categories', {
+        const response = await fetch(`${API_URL}/categories`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1036,7 +1039,7 @@
       fd.append('api_key', apiKeyEl.value);
       
       try {
-        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: fd });
         const data = await res.json();
         if(data.error){ 
           showNotification(data.error, 'warning');
@@ -1059,7 +1062,7 @@
       setButtonLoading(btnClassify, true);
       
       try {
-        const res = await fetch('/api/classify', {
+        const res = await fetch(`${API_URL}/classify`, {
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: sessionId, api_key: apiKeyEl.value, categories })
@@ -1099,7 +1102,7 @@
       setButtonLoading(btnDownload, true);
       
       try {
-        const res = await fetch('/api/download', {
+        const res = await fetch(`${API_URL}/download`, {
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
