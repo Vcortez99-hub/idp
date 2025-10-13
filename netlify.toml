@@ -1,9 +1,24 @@
 [build]
-  # Não precisa de build command para HTML estático
-  command = ""
+  # Não executar nenhum comando de build
+  command = "echo 'Deploying static HTML only'"
   
-  # Publica apenas o arquivo index.html
+  # Publicar apenas a raiz (onde está o index.html)
   publish = "."
   
-  # Ignora mudanças no backend
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- app.py requirements.txt"
+  # Ignorar instalação de dependências Python
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF . ':(exclude)*.py' ':(exclude)requirements.txt'"
+
+# Desabilita detecção automática de frameworks
+[build.environment]
+  NODE_VERSION = "18"
+
+# Não instalar dependências automaticamente
+[[plugins]]
+  package = "@netlify/plugin-skip-python"
+
+# Headers de segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
