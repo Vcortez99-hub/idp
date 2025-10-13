@@ -1,0 +1,9 @@
+[build]
+  # Não precisa de build command para HTML estático
+  command = ""
+  
+  # Publica apenas o arquivo index.html
+  publish = "."
+  
+  # Ignora mudanças no backend
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- app.py requirements.txt"
