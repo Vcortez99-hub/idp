@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classificador de Documentos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #111827;
+      --bg-tertiary: #1f2937;
+      --bg-card: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #d1d5db;
+      --text-muted: #9ca3af;
+      --accent-primary: #3b82f6;
+      --accent-secondary: #1d4ed8;
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --border-color: #4b5563;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
+
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, #1e293b 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Navigation */
+    .navbar {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent-primary);
+      text-decoration: none;
+    }
+
+    .nav-menu {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-item {
+      position: relative;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: 0.75rem;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      transform: translateY(-2px);
+    }
+
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white;
+    }
+
+    /* Main Content */
+    .container { 
+      max-width: 1400px; 
+      margin: 0 auto; 
+      padding: 2rem;
+    }
+
+    .page {
+      display: none;
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .header { 
+      text-align: center; 
+      margin-bottom: 3rem;
+      padding: 2rem 0;
+    }
+
+    .header h1 { 
+      font-size: 3.5rem; 
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .header p { 
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .card { 
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-xl);
+      border-color: var(--accent-primary);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-header i {
+      font-size: 1.5rem;
+      color: var(--accent-primary);
+    }
+
+    .card-header h2 { 
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .form-group { 
+      margin-bottom: 1.5rem; 
+    }
+
+    label { 
+      display: block; 
+      margin-bottom: 0.5rem; 
+      font-weight: 500; 
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input, select, button { 
+      width: 100%; 
+      padding: 0.875rem 1rem; 
+      border: 2px solid var(--border-color); 
+      border-radius: 0.75rem; 
+      font-size: 1rem; 
+      transition: all 0.3s ease;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+
+    input:focus, select:focus { 
+      outline: none; 
+      border-color: var(--accent-primary); 
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      background: var(--bg-card);
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    button { 
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white; 
+      border: none; 
+      cursor: pointer; 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 0.05em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    button:hover:before {
+      left: 100%;
+    }
+
+    button:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+    }
+
+    button:disabled { 
+      background: var(--bg-card); 
+      cursor: not-allowed; 
+      transform: none; 
+      box-shadow: none;
+      opacity: 0.5;
+    }
+
+    .file-drop { 
+      border: 3px dashed var(--border-color); 
+      border-radius: 1rem; 
+      padding: 3rem; 
+      text-align: center; 
+      background: var(--bg-tertiary);
+      transition: all 0.3s ease; 
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .file-drop:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .file-drop:hover:before {
+      opacity: 1;
+    }
+
+    .file-drop:hover { 
+      border-color: var(--accent-primary);
+      background: var(--bg-card);
+      transform: translateY(-2px);
+    }
+
+    .file-drop.dragover { 
+      border-color: var(--accent-success);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .file-drop i {
+      font-size: 3rem;
+      color: var(--accent-primary);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .file-drop p {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .file-drop small {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .results { 
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem; 
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .summary {
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: white;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      font-weight: 600;
+      font-size: 1.125rem;
+    }
+
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 1rem;
+      background: var(--bg-tertiary);
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+
+    th, td { 
+      padding: 1rem; 
+      text-align: left; 
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th { 
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.875rem;
+    }
+
+    tr:hover { 
+      background: var(--bg-card);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .cost { 
+      font-weight: 700; 
+      color: var(--accent-success);
+    }
+
+    /* Category Management Styles */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .category-card {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .category-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .category-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    }
+
+    .category-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .category-key {
+      font-family: 'Courier New', monospace;
+      background: var(--bg-card);
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+
+    .category-name {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .category-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      width: auto;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .btn-danger {
+      background: var(--accent-danger);
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .add-category-form {
+      background: var(--bg-card);
+      border: 2px dashed var(--border-color);
+      border-radius: 1rem;
+      padding: 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .add-category-form:hover {
+      border-color: var(--accent-primary);
+      background: var(--bg-tertiary);
+    }
+
+    .add-category-form.active {
+      border-style: solid;
+      border-color: var(--accent-primary);
+      background: var(--bg-tertiary);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+
+    .status-success { background: var(--accent-success); }
+    .status-warning { background: var(--accent-warning); }
+    .status-danger { background: var(--accent-danger); }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card {
+      animation: fadeInUp 0.6s ease-out;
+    }
+
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.2s; }
+    .card:nth-child(4) { animation-delay: 0.3s; }
+
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .nav-container { padding: 0 1rem; }
+      .nav-menu { gap: 1rem; }
+      .header h1 { font-size: 2.5rem; }
+      .grid { grid-template-columns: 1fr; }
+      .category-grid { grid-template-columns: 1fr; }
+      .form-row { flex-direction: column; }
+    }
+
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Mobile Navigation */
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      width: auto;
+    }
+
+    @media (max-width: 768px) {
+      .nav-toggle {
+        display: block;
+      }
+
+      .nav-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border-color);
+        flex-direction: column;
+        gap: 0;
+        transform: translateY(-100%);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .nav-menu.active {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .nav-link {
+        padding: 1rem 2rem;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="#" class="nav-brand">
+        <i class="fas fa-folder-open"></i>
+        Classificador de Documentos
+      </a>
+      
+      <button class="nav-toggle" onclick="toggleMobileMenu()">
+        <i class="fas fa-bars"></i>
+      </button>
+      
+      <ul class="nav-menu" id="navMenu">
+        <li class="nav-item">
+          <a href="#" class="nav-link active" onclick="showPage('classifier')">
+            <i class="fas fa-robot"></i>
+            Classificação
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" onclick="showPage('categories')">
+            <i class="fas fa-cogs"></i>
+            Categorias
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" onclick="showPage('settings')">
+            <i class="fas fa-sliders-h"></i>
+            Configurações
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Página de Classificação -->
+    <div id="classifier" class="page active">
+      <div class="header">
+        <h1><i class="fas fa-robot"></i> Classificação de Documentos</h1>
+        <p>Faça upload e classifique seus documentos automaticamente</p>
+      </div>
+      
+      <div class="grid">
+        <!-- Upload -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h2>Upload de Documentos</h2>
+          </div>
+          <div class="file-drop" id="fileDrop">
+            <i class="fas fa-file-upload"></i>
+            <p>Arraste arquivos aqui ou clique para selecionar</p>
+            <small>Formatos aceitos: PDF, PNG, JPG, JPEG</small>
+          </div>
+          <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display: none;">
+          <button id="btnUpload" disabled style="margin-top: 1.5rem;">
+            <i class="fas fa-upload"></i> Fazer Upload
+          </button>
+        </div>
+
+        <!-- Classificação -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-search"></i>
+            <h2>Processar Documentos</h2>
+          </div>
+          <button id="btnClassify" disabled>
+            <i class="fas fa-magic"></i> Classificar Documentos
+          </button>
+        </div>
+      </div>
+
+      <!-- Resultados -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fas fa-chart-bar"></i>
+          <h2>Resultados da Classificação</h2>
+        </div>
+        <div class="results">
+          <div id="summary"></div>
+          <table>
+            <thead>
+              <tr>
+                <th><i class="fas fa-file"></i> Arquivo</th>
+                <th><i class="fas fa-tag"></i> Categoria</th>
+                <th><i class="fas fa-info-circle"></i> Descrição</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fas fa-download"></i>
+          <h2>Download dos Resultados</h2>
+        </div>
+        <button id="btnDownload" disabled>
+          <i class="fas fa-file-archive"></i> Baixar ZIP Organizado
+        </button>
+      </div>
+    </div>
+
+    <!-- Página de Categorias -->
+    <div id="categories" class="page">
+      <div class="header">
+        <h1><i class="fas fa-cogs"></i> Gerenciamento de Categorias</h1>
+        <p>Configure e personalize as categorias de documentos</p>
+      </div>
+
+      <div class="category-grid" id="categoryGrid">
+        <!-- Categorias serão renderizadas aqui -->
+      </div>
+
+      <div class="add-category-form" id="addCategoryForm" onclick="toggleAddForm()">
+        <div id="addFormPlaceholder">
+          <i class="fas fa-plus" style="font-size: 2rem; color: var(--accent-primary); margin-bottom: 1rem;"></i>
+          <h3>Adicionar Nova Categoria</h3>
+          <p style="color: var(--text-muted); margin-top: 0.5rem;">Clique para criar uma nova categoria</p>
+        </div>
+        
+        <div id="addFormContent" style="display: none;">
+          <h3 style="margin-bottom: 1.5rem;">Nova Categoria</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newCategoryKey">Chave da Categoria</label>
+              <input type="text" id="newCategoryKey" placeholder="ex: rg, cpf, contrato">
+            </div>
+            <div class="form-group">
+              <label for="newCategoryName">Nome da Categoria</label>
+              <input type="text" id="newCategoryName" placeholder="ex: RG, CPF, Contratos">
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <button onclick="addCategory()" class="btn-small" style="background: var(--accent-success);">
+              <i class="fas fa-check"></i> Salvar
+            </button>
+            <button onclick="cancelAddForm()" class="btn-small" style="background: var(--accent-danger);">
+              <i class="fas fa-times"></i> Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Página de Configurações -->
+    <div id="settings" class="page">
+      <div class="header">
+        <h1><i class="fas fa-sliders-h"></i> Configurações</h1>
+        <p>Configure as credenciais e preferências do sistema</p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-key"></i>
+            <h2>API OpenAI</h2>
+          </div>
+          <div class="form-group">
+            <label for="apiKey">Chave da API OpenAI</label>
+            <input type="password" id="apiKey" placeholder="sk-...">
+          </div>
+          <button onclick="saveSettings()">
+            <i class="fas fa-save"></i> Salvar Configurações
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-info-circle"></i>
+            <h2>Informações do Sistema</h2>
+          </div>
+          <div style="color: var(--text-secondary); line-height: 1.8;">
+            <p><strong>Versão:</strong> 2.0.0</p>
+            <p><strong>Modelo IA:</strong> GPT-4o</p>
+            <p><strong>Formatos Suportados:</strong> PDF, PNG, JPG, JPEG</p>
+            <p><strong>Categorias Ativas:</strong> <span id="categoryCount">0</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sessionId = null;
+    let classifications = [];
+    let categories = {
+      'holerite': 'Holerites',
+      'certidao_nascimento': 'Certidões de Nascimento',
+      'comprovante_residencia': 'Comprovantes de Residência',
+      'rg': 'RG',
+      'cpf': 'CPF',
+      'cnh': 'CNH',
+      'ctps': 'CTPS',
+      'contrato': 'Contratos',
+      'procuracao': 'Procurações',
+      'peticao': 'Petições',
+      'sentenca': 'Sentenças',
+      'outros': 'Outros Documentos'
+    };
+
+    const fileDrop = document.getElementById('fileDrop');
+    const fileInput = document.getElementById('fileInput');
+    const btnUpload = document.getElementById('btnUpload');
+    const btnClassify = document.getElementById('btnClassify');
+    const btnDownload = document.getElementById('btnDownload');
+    const apiKeyEl = document.getElementById('apiKey');
+    const summary = document.getElementById('summary');
+    const resultsBody = document.getElementById('resultsBody');
+
+    // Inicializar interface
+    loadCategories();
+    renderCategories();
+    updateCategoryCount();
+
+    // Sistema de Rotas
+    function showPage(pageId) {
+      // Esconder todas as páginas
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+      });
+      
+      // Mostrar página selecionada
+      document.getElementById(pageId).classList.add('active');
+      
+      // Atualizar navegação
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Fechar menu mobile se estiver aberto
+      document.getElementById('navMenu').classList.remove('active');
+    }
+
+    function toggleMobileMenu() {
+      document.getElementById('navMenu').classList.toggle('active');
+    }
+
+    // Gerenciamento de categorias
+    function renderCategories() {
+      const categoryGrid = document.getElementById('categoryGrid');
+      const addForm = document.getElementById('addCategoryForm');
+      
+      categoryGrid.innerHTML = Object.entries(categories).map(([key, name]) => `
+        <div class="category-card">
+          <div class="category-info">
+            <div class="category-key">${key}</div>
+            ${key !== 'outros' ? `
+              <button onclick="removeCategory('${key}')" class="btn-small btn-danger">
+                <i class="fas fa-trash"></i>
+              </button>
+            ` : ''}
+          </div>
+          <div class="category-name">${name}</div>
+          <p style="color: var(--text-muted); font-size: 0.875rem;">
+            ${key === 'outros' ? 'Categoria padrão para documentos não identificados' : 'Categoria personalizada'}
+          </p>
+        </div>
+      `).join('');
+      
+      // Mover o formulário para o final
+      categoryGrid.appendChild(addForm);
+      updateCategoryCount();
+    }
+
+    function toggleAddForm() {
+      const form = document.getElementById('addCategoryForm');
+      const placeholder = document.getElementById('addFormPlaceholder');
+      const content = document.getElementById('addFormContent');
+      
+      if (form.classList.contains('active')) return;
+      
+      form.classList.add('active');
+      placeholder.style.display = 'none';
+      content.style.display = 'block';
+      document.getElementById('newCategoryKey').focus();
+    }
+
+    function cancelAddForm() {
+      const form = document.getElementById('addCategoryForm');
+      const placeholder = document.getElementById('addFormPlaceholder');
+      const content = document.getElementById('addFormContent');
+      
+      form.classList.remove('active');
+      placeholder.style.display = 'block';
+      content.style.display = 'none';
+      
+      // Limpar campos
+      document.getElementById('newCategoryKey').value = '';
+      document.getElementById('newCategoryName').value = '';
+    }
+
+    function addCategory() {
+      const key = document.getElementById('newCategoryKey').value.trim().toLowerCase();
+      const name = document.getElementById('newCategoryName').value.trim();
+      
+      if (!key || !name) {
+        showNotification('Preencha ambos os campos', 'warning');
+        return;
+      }
+      
+      if (categories[key]) {
+        showNotification('Categoria já existe', 'warning');
+        return;
+      }
+      
+      categories[key] = name;
+      cancelAddForm();
+      renderCategories();
+      saveCategories();
+      showNotification('Categoria adicionada com sucesso!', 'success');
+    }
+
+    function removeCategory(key) {
+      if (key === 'outros') return;
+      delete categories[key];
+      renderCategories();
+      saveCategories();
+      showNotification('Categoria removida com sucesso!', 'success');
+    }
+
+    // Função para carregar categorias do servidor
+    async function loadCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          categories = data.categories;
+          console.log('Categorias carregadas:', categories);
+        } else {
+          console.warn('Erro ao carregar categorias, usando padrões');
+        }
+      } catch (error) {
+        console.warn('Erro ao conectar com servidor para carregar categorias:', error);
+      }
+    }
+
+    // Função para salvar categorias no servidor
+    async function saveCategories() {
+      try {
+        const response = await fetch('/api/categories', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ categories: categories })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Categorias salvas com sucesso:', data.message);
+        } else {
+          const error = await response.json();
+          console.error('Erro ao salvar categorias:', error.error);
+          showNotification('Erro ao salvar categorias', 'warning');
+        }
+      } catch (error) {
+        console.error('Erro ao conectar com servidor para salvar categorias:', error);
+        showNotification('Erro de conexão ao salvar categorias', 'warning');
+      }
+    }
+
+    function updateCategoryCount() {
+      const count = Object.keys(categories).length;
+      const countEl = document.getElementById('categoryCount');
+      if (countEl) countEl.textContent = count;
+    }
+
+    function saveSettings() {
+      const apiKey = document.getElementById('apiKey').value;
+      if (apiKey) {
+        localStorage.setItem('openai_api_key', apiKey);
+        showNotification('Configurações salvas com sucesso!', 'success');
+      } else {
+        showNotification('Insira uma chave de API válida', 'warning');
+      }
+    }
+
+    // Carregar configurações salvas
+    window.addEventListener('load', () => {
+      const savedApiKey = localStorage.getItem('openai_api_key');
+      if (savedApiKey) {
+        document.getElementById('apiKey').value = savedApiKey;
+      }
+    });
+
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        border-radius: 0.5rem;
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        background: ${type === 'success' ? 'var(--accent-success)' : type === 'warning' ? 'var(--accent-warning)' : 'var(--accent-primary)'};
+      `;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+
+    function setButtonLoading(button, loading) {
+      if (loading) {
+        button.innerHTML = `<span class="loading"></span> Processando...`;
+        button.disabled = true;
+      } else {
+        button.disabled = false;
+      }
+    }
+
+    // Upload de arquivos
+    fileDrop.addEventListener('click', () => fileInput.click());
+    fileDrop.addEventListener('dragover', e => { e.preventDefault(); fileDrop.classList.add('dragover'); });
+    fileDrop.addEventListener('dragleave', () => fileDrop.classList.remove('dragover'));
+    fileDrop.addEventListener('drop', e => {
+      e.preventDefault();
+      fileDrop.classList.remove('dragover');
+      fileInput.files = e.dataTransfer.files;
+      btnUpload.disabled = false;
+      showNotification(`${e.dataTransfer.files.length} arquivo(s) selecionado(s)`, 'success');
+    });
+
+    fileInput.addEventListener('change', () => {
+      btnUpload.disabled = fileInput.files.length === 0;
+      if (fileInput.files.length > 0) {
+        showNotification(`${fileInput.files.length} arquivo(s) selecionado(s)`, 'success');
+      }
+    });
+
+    btnUpload.addEventListener('click', async () => {
+      setButtonLoading(btnUpload, true);
+      const files = Array.from(fileInput.files);
+      const fd = new FormData();
+      files.forEach(f => fd.append('files[]', f));
+      fd.append('api_key', apiKeyEl.value);
+      
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if(data.error){ 
+          showNotification(data.error, 'warning');
+          return; 
+        }
+        sessionId = data.session_id;
+        btnClassify.disabled = false;
+        btnUpload.innerHTML = '<i class="fas fa-check"></i> Upload Concluído';
+        showNotification('Upload realizado com sucesso!', 'success');
+      } catch (error) {
+        showNotification('Erro no upload', 'warning');
+      } finally {
+        setTimeout(() => {
+          btnUpload.innerHTML = '<i class="fas fa-upload"></i> Fazer Upload';
+        }, 2000);
+      }
+    });
+
+    btnClassify.addEventListener('click', async () => {
+      setButtonLoading(btnClassify, true);
+      
+      try {
+        const res = await fetch('/api/classify', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId, api_key: apiKeyEl.value, categories })
+        });
+        const data = await res.json();
+        if(data.error){ 
+          showNotification(data.error, 'warning');
+          return; 
+        }
+        classifications = data.results;
+        summary.innerHTML = `
+          <div class="summary">
+            <i class="fas fa-chart-line"></i>
+            Total: ${data.total_files} documentos — Custo Total: <span class="cost">US$ ${data.total_cost.toFixed(4)}</span>
+          </div>
+        `;
+        resultsBody.innerHTML = classifications.map(r => `
+          <tr>
+            <td><i class="fas fa-file-alt"></i> ${r.filename}</td>
+            <td><span class="status-indicator status-success"></span>${r.category}</td>
+            <td>${r.category_name}</td>
+          </tr>
+        `).join('');
+        btnDownload.disabled = false;
+        btnClassify.innerHTML = '<i class="fas fa-check"></i> Classificação Concluída';
+        showNotification('Classificação realizada com sucesso!', 'success');
+      } catch (error) {
+        showNotification('Erro na classificação', 'warning');
+      } finally {
+        setTimeout(() => {
+          btnClassify.innerHTML = '<i class="fas fa-magic"></i> Classificar Documentos';
+        }, 2000);
+      }
+    });
+
+    btnDownload.addEventListener('click', async () => {
+      setButtonLoading(btnDownload, true);
+      
+      try {
+        const res = await fetch('/api/download', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            session_id: sessionId, 
+            classifications, 
+            total_cost: parseFloat((summary.textContent.match(/US\$ ([0-9.]+)/)||['',0])[1]) || 0 
+          })
+        });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); 
+        a.href = url; 
+        a.download = `documentos_organizados_${sessionId}.zip`; 
+        a.click();
+        URL.revokeObjectURL(url);
+        btnDownload.innerHTML = '<i class="fas fa-check"></i> Download Concluído';
+        showNotification('ZIP baixado com sucesso!', 'success');
+      } catch (error) {
+        showNotification('Erro no download', 'warning');
+      } finally {
+        setTimeout(() => {
+          btnDownload.innerHTML = '<i class="fas fa-file-archive"></i> Baixar ZIP Organizado';
+        }, 2000);
+      }
+    });
+  </script>
+</body>
+</html>
