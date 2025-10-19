@@ -1202,21 +1202,22 @@ def submit_feedback():
         print(f"Erro ao processar feedback: {e}")
         return jsonify({'error': f'Erro ao processar feedback: {str(e)}'}), 500
 
-@app.route('/dashboard')
-def dashboard():
-    """Página do dashboard de aprendizado inteligente"""
-    return render_template('dashboard.html')
+# Dashboard temporariamente oculto
+# @app.route('/dashboard')
+# def dashboard():
+#     """Página do dashboard de aprendizado inteligente"""
+#     return render_template('dashboard.html')
 
-@app.route('/api/performance', methods=['GET'])
-def get_performance_report():
-    """Retorna relatório de performance do sistema de aprendizado"""
-    try:
-        report = learning_system.get_performance_report()
-        return jsonify(report)
-        
-    except Exception as e:
-        print(f"Erro ao gerar relatório: {e}")
-        return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
+# @app.route('/api/performance', methods=['GET'])
+# def get_performance_report():
+#     """Retorna relatório de performance do sistema de aprendizado"""
+#     try:
+#         report = learning_system.get_performance_report()
+#         return jsonify(report)
+#
+#     except Exception as e:
+#         print(f"Erro ao gerar relatório: {e}")
+#         return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
 
 def extract_semantic_features(text_content):
     """Extrai features semânticas do conteúdo para validação"""
