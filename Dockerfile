@@ -15,9 +15,9 @@ RUN apt-get install -y --no-install-recommends \
     tesseract-ocr-eng \
     tesseract-ocr-fra
 
-# Instalar dependências do OpenCV e sistema
+# Instalar dependências do OpenCV (CORRIGIDO: libgl1 ao invés de libgl1-mesa-glx)
 RUN apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0
 
 # Instalar poppler-utils para PDF
