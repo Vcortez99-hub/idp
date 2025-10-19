@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Aprendizado Inteligente - IDP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/learning_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="learning-dashboard">
+        <!-- Cabeçalho do Dashboard -->
+        <div class="dashboard-header">
+            <h1>🧠 Dashboard de Aprendizado Inteligente</h1>
+            <p>Acompanhe o progresso e a performance do sistema de classificação de documentos</p>
+            <button id="refresh-dashboard" class="refresh-btn">🔄 Atualizar Dados</button>
+        </div>
+
+        <!-- Estatísticas Gerais -->
+        <div class="dashboard-section">
+            <div id="overview-stats">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total de Classificações</h3>
+                        <div class="stat-number" id="total-classifications">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Feedback Recebido</h3>
+                        <div class="stat-number" id="total-feedback">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Padrões Aprendidos</h3>
+                        <div class="stat-number" id="learned-patterns">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>👍 Feedbacks Positivos</h3>
+                        <div class="stat-number" id="positive-feedback" style="color: #10b981;">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>👎 Feedbacks Negativos</h3>
+                        <div class="stat-number" id="negative-feedback" style="color: #ef4444;">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Taxa de Aprovação</h3>
+                        <div class="stat-number" id="approval-rate">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback por Categoria -->
+        <div class="dashboard-section">
+            <div id="feedback-by-category">
+                <h3>📊 Feedback por Categoria</h3>
+                <div id="feedback-category-content">Carregando dados...</div>
+            </div>
+        </div>
+
+        <!-- Performance por Categoria -->
+        <div class="dashboard-section">
+            <div id="category-stats">
+                <h3>Performance por Categoria</h3>
+                <p>Carregando dados...</p>
+            </div>
+        </div>
+
+        <!-- Progresso do Aprendizado -->
+        <div class="dashboard-section">
+            <div id="learning-progress">
+                <h3>Progresso do Aprendizado</h3>
+                <p>Carregando dados...</p>
+            </div>
+        </div>
+
+        <!-- Instruções de Uso -->
+        <div class="dashboard-section">
+            <h3>📋 Como Funciona o Sistema Inteligente</h3>
+            <div style="line-height: 1.6;">
+                <h4>🎯 Aprendizado Automático:</h4>
+                <ul>
+                    <li><strong>Padrões de Nome:</strong> O sistema aprende com os nomes dos arquivos que você envia</li>
+                    <li><strong>Conteúdo de Texto:</strong> Analisa o texto extraído dos documentos para identificar palavras-chave</li>
+                    <li><strong>Formatos Específicos:</strong> Reconhece padrões como CPF, RG, datas, valores monetários</li>
+                </ul>
+
+                <h4>🔄 Sistema de Feedback:</h4>
+                <ul>
+                    <li>Quando uma classificação estiver incorreta, você pode corrigi-la</li>
+                    <li>O sistema aprende com suas correções e melhora automaticamente</li>
+                    <li>Cada feedback aumenta a precisão para documentos similares</li>
+                </ul>
+
+                <h4>📊 Pontuação de Confiança:</h4>
+                <ul>
+                    <li><strong>Alta Confiança (>0.8):</strong> Classificação muito provável de estar correta</li>
+                    <li><strong>Média Confiança (0.5-0.8):</strong> Classificação provável, mas pode precisar de revisão</li>
+                    <li><strong>Baixa Confiança (<0.5):</strong> Classificação incerta, recomenda-se verificação manual</li>
+                </ul>
+
+                <h4>🚀 Melhorias Contínuas:</h4>
+                <ul>
+                    <li>Quanto mais documentos você processar, mais inteligente o sistema fica</li>
+                    <li>O sistema identifica automaticamente novos padrões nos seus documentos</li>
+                    <li>A precisão melhora continuamente com o uso</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Navegação -->
+        <div class="dashboard-section" style="text-align: center;">
+            <a href="{{ url_for('index') }}" style="display: inline-block; padding: 15px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-weight: 500;">
+                ← Voltar ao Sistema Principal
+            </a>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/learning_dashboard.js') }}"></script>
+</body>
+</html>

@@ -7,11 +7,22 @@ __pycache__/
 env/
 venv/
 ENV/
+.venv
 *.egg-info/
+
+# Flask
+instance/
+.webassets-cache
+
+# Banco de dados local
+learning_data.db
+*.db
 
 # Pastas de upload e processamento
 uploads/
+temp_files/
 processed/
+Documentos/
 
 # Variáveis de ambiente
 .env
@@ -22,6 +33,7 @@ processed/
 .idea/
 *.swp
 *.swo
+*~
 
 # Sistema
 .DS_Store
@@ -33,3 +45,13 @@ Thumbs.db
 # Testes
 .pytest_cache/
 .coverage
+htmlcov/
+
+# Distribution / packaging
+build/
+dist/
+
+# Documentação gerada (manter guias importantes)
+!GUIA_DEPLOY_WEB.md
+!SISTEMA_APRENDIZADO.md
+!test_guide.md

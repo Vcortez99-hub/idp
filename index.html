@@ -372,26 +372,49 @@
     }
 
     .cost { 
-      font-weight: 700; 
-      color: var(--accent-success);
+      color: #e74c3c;
+      font-weight: bold;
     }
 
     /* Category Management Styles */
     .category-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
       margin-bottom: 2rem;
+      max-height: 70vh;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    /* Estilo personalizado para a barra de rolagem */
+    .category-grid::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .category-grid::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+      border-radius: 3px;
+    }
+
+    .category-grid::-webkit-scrollbar-thumb {
+      background: var(--accent-primary);
+      border-radius: 3px;
+    }
+
+    .category-grid::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-secondary);
     }
 
     .category-card {
       background: var(--bg-tertiary);
       border: 1px solid var(--border-color);
-      border-radius: 1rem;
-      padding: 1.5rem;
+      border-radius: 0.75rem;
+      padding: 0.75rem;
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      min-height: 80px;
     }
 
     .category-card:hover {
@@ -414,24 +437,25 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
     }
 
     .category-key {
       font-family: 'Courier New', monospace;
       background: var(--bg-card);
-      padding: 0.25rem 0.75rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
       color: var(--accent-primary);
       font-weight: 600;
     }
 
     .category-name {
-      font-size: 1.125rem;
+      font-size: 0.875rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.25rem;
+      line-height: 1.2;
     }
 
     .category-actions {
@@ -440,11 +464,16 @@
     }
 
     .btn-small {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
       width: auto;
       text-transform: none;
       letter-spacing: normal;
+      min-width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .btn-danger {
@@ -458,11 +487,15 @@
     .add-category-form {
       background: var(--bg-card);
       border: 2px dashed var(--border-color);
-      border-radius: 1rem;
-      padding: 2rem;
+      border-radius: 0.75rem;
+      padding: 1rem;
       text-align: center;
       transition: all 0.3s ease;
       cursor: pointer;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .add-category-form:hover {
@@ -613,12 +646,6 @@
             Categorias
           </a>
         </li>
-        <li class="nav-item">
-          <a href="#" class="nav-link" onclick="showPage('settings')">
-            <i class="fas fa-sliders-h"></i>
-            Configurações
-          </a>
-        </li>
       </ul>
     </div>
   </nav>
@@ -629,6 +656,11 @@
       <div class="header">
         <h1><i class="fas fa-robot"></i> Classificação de Documentos</h1>
         <p>Faça upload e classifique seus documentos automaticamente</p>
+        <div style="margin-top: 15px;">
+          <a href="/dashboard" style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px; font-weight: 500; transition: background 0.3s;">
+            <i class="fas fa-chart-line"></i> Dashboard de Aprendizado
+          </a>
+        </div>
       </div>
       
       <div class="grid">
@@ -659,6 +691,7 @@
             <i class="fas fa-magic"></i> Classificar Documentos
           </button>
         </div>
+
       </div>
 
       <!-- Resultados -->
@@ -673,12 +706,25 @@
             <thead>
               <tr>
                 <th><i class="fas fa-file"></i> Arquivo</th>
-                <th><i class="fas fa-tag"></i> Categoria</th>
-                <th><i class="fas fa-info-circle"></i> Descrição</th>
+                <th><i class="fas fa-info-circle"></i> Categoria</th>
+                <th><i class="fas fa-eye"></i> Confiança OCR</th>
+                <th><i class="fas fa-thumbs-up"></i> Avaliação</th>
               </tr>
             </thead>
             <tbody id="resultsBody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Resultados da Separação -->
+      <div class="card" id="separationResults" style="display: none;">
+        <div class="card-header">
+          <i class="fas fa-file-medical"></i>
+          <h2>Documentos Separados</h2>
+        </div>
+        <div class="results">
+          <div id="separationSummary"></div>
+          <div id="separatedDocuments"></div>
         </div>
       </div>
 
@@ -699,6 +745,12 @@
       <div class="header">
         <h1><i class="fas fa-cogs"></i> Gerenciamento de Categorias</h1>
         <p>Configure e personalize as categorias de documentos</p>
+        <div style="margin-top: 1rem; padding: 0.75rem 1rem; background: var(--card-bg); border-radius: 0.5rem; border-left: 4px solid var(--accent-primary);">
+          <span style="color: var(--text-secondary); font-size: 0.9rem;">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+            Total de categorias disponíveis: <strong id="categoryCountDisplay" style="color: var(--accent-primary);">0</strong>
+          </span>
+        </div>
       </div>
 
       <div class="category-grid" id="categoryGrid">
@@ -776,7 +828,7 @@
 
   <script>
     // Configuração da URL da API
-    const API_URL = 'https://idp-devskin.onrender.com/api';
+    const API_URL = 'http://localhost:5000/api';
     
     let sessionId = null;
     let classifications = [];
@@ -800,14 +852,14 @@
     const btnUpload = document.getElementById('btnUpload');
     const btnClassify = document.getElementById('btnClassify');
     const btnDownload = document.getElementById('btnDownload');
-    const apiKeyEl = document.getElementById('apiKey');
     const summary = document.getElementById('summary');
     const resultsBody = document.getElementById('resultsBody');
 
+    // API Key padrão (vazia para usar modo offline)
+    const apiKey = '';
+
     // Inicializar interface
-    loadCategories();
-    renderCategories();
-    updateCategoryCount();
+    initializeInterface();
 
     // Sistema de Rotas
     function showPage(pageId) {
@@ -849,8 +901,8 @@
             ` : ''}
           </div>
           <div class="category-name">${name}</div>
-          <p style="color: var(--text-muted); font-size: 0.875rem;">
-            ${key === 'outros' ? 'Categoria padrão para documentos não identificados' : 'Categoria personalizada'}
+          <p style="color: var(--text-muted); font-size: 0.75rem; line-height: 1.2; margin: 0;">
+            ${key === 'outros' ? 'Categoria padrão' : 'Personalizada'}
           </p>
         </div>
       `).join('');
@@ -916,6 +968,13 @@
       showNotification('Categoria removida com sucesso!', 'success');
     }
 
+    // Função para inicializar a interface
+    async function initializeInterface() {
+      await loadCategories();
+      renderCategories();
+      updateCategoryCount();
+    }
+
     // Função para carregar categorias do servidor
     async function loadCategories() {
       try {
@@ -960,26 +1019,11 @@
     function updateCategoryCount() {
       const count = Object.keys(categories).length;
       const countEl = document.getElementById('categoryCount');
+      const countDisplayEl = document.getElementById('categoryCountDisplay');
       if (countEl) countEl.textContent = count;
+      if (countDisplayEl) countDisplayEl.textContent = count;
     }
 
-    function saveSettings() {
-      const apiKey = document.getElementById('apiKey').value;
-      if (apiKey) {
-        localStorage.setItem('openai_api_key', apiKey);
-        showNotification('Configurações salvas com sucesso!', 'success');
-      } else {
-        showNotification('Insira uma chave de API válida', 'warning');
-      }
-    }
-
-    // Carregar configurações salvas
-    window.addEventListener('load', () => {
-      const savedApiKey = localStorage.getItem('openai_api_key');
-      if (savedApiKey) {
-        document.getElementById('apiKey').value = savedApiKey;
-      }
-    });
 
     function showNotification(message, type = 'info') {
       const notification = document.createElement('div');
@@ -1012,6 +1056,29 @@
       }
     }
 
+    function resetUploadForm() {
+      // NÃO limpa o sessionId - mantém para permitir download
+      // Apenas reseta o visual para novo upload
+
+      // Limpa o input de arquivos
+      fileInput.value = '';
+
+      // Reseta o visual da área de drop
+      fileDrop.innerHTML = `
+        <i class="fas fa-file-upload"></i>
+        <p>Arraste arquivos aqui ou clique para selecionar</p>
+        <small>Formatos aceitos: PDF, PNG, JPG, JPEG</small>
+      `;
+
+      // Reseta os botões
+      btnUpload.disabled = false;
+      btnUpload.innerHTML = '<i class="fas fa-upload"></i> Fazer Upload';
+      btnClassify.disabled = true;
+      btnClassify.innerHTML = '<i class="fas fa-magic"></i> Classificar Documentos';
+
+      showNotification('Pronto para novo processamento!', 'info');
+    }
+
     // Upload de arquivos
     fileDrop.addEventListener('click', () => fileInput.click());
     fileDrop.addEventListener('dragover', e => { e.preventDefault(); fileDrop.classList.add('dragover'); });
@@ -1036,7 +1103,7 @@
       const files = Array.from(fileInput.files);
       const fd = new FormData();
       files.forEach(f => fd.append('files[]', f));
-      fd.append('api_key', apiKeyEl.value);
+      fd.append('api_key', apiKey);
       
       try {
         const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: fd });
@@ -1060,12 +1127,12 @@
 
     btnClassify.addEventListener('click', async () => {
       setButtonLoading(btnClassify, true);
-      
+
       try {
         const res = await fetch(`${API_URL}/classify`, {
-          method: 'POST', 
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId, api_key: apiKeyEl.value, categories })
+          body: JSON.stringify({ session_id: sessionId, api_key: apiKey, categories })
         });
         const data = await res.json();
         if(data.error){ 
@@ -1074,21 +1141,76 @@
         }
         classifications = data.results;
         summary.innerHTML = `
-          <div class="summary">
-            <i class="fas fa-chart-line"></i>
-            Total: ${data.total_files} documentos — Custo Total: <span class="cost">US$ ${data.total_cost.toFixed(4)}</span>
-          </div>
-        `;
-        resultsBody.innerHTML = classifications.map(r => `
-          <tr>
-            <td><i class="fas fa-file-alt"></i> ${r.filename}</td>
-            <td><span class="status-indicator status-success"></span>${r.category}</td>
-            <td>${r.category_name}</td>
-          </tr>
-        `).join('');
+           <div class="summary">
+             <i class="fas fa-chart-line"></i>
+             Total: ${data.total_files} documentos
+           </div>
+         `;
+        resultsBody.innerHTML = classifications.map(r => {
+          const ocrConfidence = r.ocr_confidence || 0;
+          const aiConfidence = r.confidence || 0;
+          const usedAi = r.used_ai || false;
+
+          // Define cor baseada na confiança
+          const getConfidenceColor = (conf) => {
+            if (conf >= 0.8) return 'var(--accent-success)';
+            if (conf >= 0.6) return 'var(--accent-warning)';
+            return 'var(--accent-danger)';
+          };
+
+          const getConfidenceLabel = (conf) => {
+            if (conf >= 0.8) return 'Alta';
+            if (conf >= 0.6) return 'Média';
+            return 'Baixa';
+          };
+
+          const rowId = `row-${r.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+          return `
+            <tr id="${rowId}">
+              <td><i class="fas fa-file-alt"></i> ${r.filename}</td>
+              <td><span class="status-indicator status-success"></span>${r.category_name}</td>
+              <td>
+                <span style="color: ${getConfidenceColor(ocrConfidence)}; font-weight: 600;">
+                  ${(ocrConfidence * 100).toFixed(0)}%
+                </span>
+                <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 0.25rem;">
+                  (${getConfidenceLabel(ocrConfidence)})
+                </span>
+              </td>
+              <td>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button
+                    onclick="submitFeedback('${r.filename}', '${r.category}', true, '${rowId}')"
+                    id="${rowId}-like"
+                    style="background: none; border: 2px solid var(--border-color); color: var(--text-muted); padding: 0.5rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; width: auto; min-width: 40px;"
+                    onmouseover="this.style.borderColor='var(--accent-success)'; this.style.color='var(--accent-success)';"
+                    onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)';"
+                  >
+                    <i class="fas fa-thumbs-up"></i>
+                  </button>
+                  <button
+                    onclick="submitFeedback('${r.filename}', '${r.category}', false, '${rowId}')"
+                    id="${rowId}-dislike"
+                    style="background: none; border: 2px solid var(--border-color); color: var(--text-muted); padding: 0.5rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; width: auto; min-width: 40px;"
+                    onmouseover="this.style.borderColor='var(--accent-danger)'; this.style.color='var(--accent-danger)';"
+                    onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)';"
+                  >
+                    <i class="fas fa-thumbs-down"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
         btnDownload.disabled = false;
         btnClassify.innerHTML = '<i class="fas fa-check"></i> Classificação Concluída';
         showNotification('Classificação realizada com sucesso!', 'success');
+
+        // Resetar para permitir novo processamento
+        setTimeout(() => {
+          resetUploadForm();
+        }, 2000);
       } catch (error) {
         showNotification('Erro na classificação', 'warning');
       } finally {
@@ -1099,35 +1221,247 @@
     });
 
     btnDownload.addEventListener('click', async () => {
+      console.log('=== INÍCIO DO DOWNLOAD ===');
+      console.log('sessionId:', sessionId);
+      console.log('classifications:', classifications);
+      console.log('Tipo de sessionId:', typeof sessionId);
+      console.log('Tipo de classifications:', typeof classifications);
+
+      if (!sessionId) {
+        showNotification('Erro: Nenhuma sessão ativa. Faça upload e classifique documentos primeiro.', 'warning');
+        return;
+      }
+
+      if (!classifications || classifications.length === 0) {
+        showNotification('Erro: Nenhum documento classificado. Classifique documentos primeiro.', 'warning');
+        return;
+      }
+
       setButtonLoading(btnDownload, true);
-      
+
       try {
+        const requestBody = {
+          session_id: sessionId,
+          classifications: classifications
+        };
+
+        console.log('Enviando para API:', requestBody);
+
         const res = await fetch(`${API_URL}/download`, {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            session_id: sessionId, 
-            classifications, 
-            total_cost: parseFloat((summary.textContent.match(/US\$ ([0-9.]+)/)||['',0])[1]) || 0 
-          })
-        });
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(requestBody)
+         });
+
+        console.log('Resposta da API:', res.status, res.statusText);
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error('Erro no download:', errorData);
+          showNotification(`Erro: ${errorData.error || 'Erro desconhecido'}`, 'warning');
+          return;
+        }
+
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); 
-        a.href = url; 
-        a.download = `documentos_organizados_${sessionId}.zip`; 
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `documentos_organizados_${sessionId}.zip`;
         a.click();
         URL.revokeObjectURL(url);
         btnDownload.innerHTML = '<i class="fas fa-check"></i> Download Concluído';
         showNotification('ZIP baixado com sucesso!', 'success');
       } catch (error) {
-        showNotification('Erro no download', 'warning');
+        console.error('Erro no download:', error);
+        showNotification('Erro no download: ' + error.message, 'warning');
       } finally {
         setTimeout(() => {
           btnDownload.innerHTML = '<i class="fas fa-file-archive"></i> Baixar ZIP Organizado';
         }, 2000);
       }
     });
+
+    // Separação de Documentos
+    const separateFileDrop = document.getElementById('separateFileDrop');
+    const separateFileInput = document.getElementById('separateFileInput');
+    const btnSeparate = document.getElementById('btnSeparate');
+    const separationResults = document.getElementById('separationResults');
+    const separationSummary = document.getElementById('separationSummary');
+    const separatedDocuments = document.getElementById('separatedDocuments');
+
+    let separateFile = null;
+
+    // Drag and drop para separação
+    separateFileDrop.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      separateFileDrop.style.borderColor = 'var(--accent-primary)';
+    });
+
+    separateFileDrop.addEventListener('dragleave', () => {
+      separateFileDrop.style.borderColor = 'var(--border-color)';
+    });
+
+    separateFileDrop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      separateFileDrop.style.borderColor = 'var(--border-color)';
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleSeparateFile(files[0]);
+      }
+    });
+
+    separateFileDrop.addEventListener('click', () => {
+      separateFileInput.click();
+    });
+
+    separateFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleSeparateFile(e.target.files[0]);
+      }
+    });
+
+    function handleSeparateFile(file) {
+      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        showNotification('Tipo de arquivo não suportado para separação', 'warning');
+        return;
+      }
+
+      separateFile = file;
+      separateFileDrop.innerHTML = `
+        <i class="fas fa-file-check"></i>
+        <p>${file.name}</p>
+        <small>Arquivo selecionado para separação</small>
+      `;
+      btnSeparate.disabled = false;
+    }
+
+    btnSeparate.addEventListener('click', async () => {
+      if (!separateFile) return;
+
+      setButtonLoading(btnSeparate, true);
+      btnSeparate.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Separando Documentos...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', separateFile);
+
+        const response = await fetch(`${API_URL}/separate-documents`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          showNotification(data.error, 'warning');
+          return;
+        }
+
+        // Exibe resultados da separação
+        separationSummary.innerHTML = `
+          <div class="summary">
+            <i class="fas fa-file-medical"></i>
+            Arquivo: ${data.original_filename} | Documentos encontrados: ${data.documents_found}
+          </div>
+        `;
+
+        separatedDocuments.innerHTML = data.documents.map((doc, index) => `
+          <div class="separated-doc" style="background: var(--bg-tertiary); padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid var(--accent-primary);">
+            <h4><i class="fas fa-file-alt"></i> ${doc.filename}</h4>
+            <div style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: 4px;">
+              <pre style="white-space: pre-wrap; font-size: 0.9rem; color: var(--text-secondary);">${doc.text.substring(0, 500)}${doc.text.length > 500 ? '...' : ''}</pre>
+            </div>
+            <button onclick="downloadDocumentText('${doc.filename}', \`${doc.text.replace(/`/g, '\\`')}\`)" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent-primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
+              <i class="fas fa-download"></i> Baixar Texto
+            </button>
+          </div>
+        `).join('');
+
+        separationResults.style.display = 'block';
+        btnSeparate.innerHTML = '<i class="fas fa-check"></i> Separação Concluída';
+        showNotification('Documentos separados com sucesso!', 'success');
+
+      } catch (error) {
+        showNotification('Erro ao separar documentos', 'warning');
+        console.error('Erro:', error);
+      } finally {
+        setTimeout(() => {
+          btnSeparate.innerHTML = '<i class="fas fa-cut"></i> Separar Documentos';
+        }, 2000);
+      }
+    });
+
+    // Função para baixar texto de documento separado
+    function downloadDocumentText(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Função para enviar feedback de classificação
+    async function submitFeedback(filename, category, isPositive, rowId) {
+      try {
+        const response = await fetch(`${API_URL}/feedback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            filename: filename,
+            category: category,
+            is_positive: isPositive,
+            session_id: sessionId
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Atualiza visual dos botões
+          const likeBtn = document.getElementById(`${rowId}-like`);
+          const dislikeBtn = document.getElementById(`${rowId}-dislike`);
+
+          // Reseta ambos
+          likeBtn.style.background = 'none';
+          likeBtn.style.borderColor = 'var(--border-color)';
+          likeBtn.style.color = 'var(--text-muted)';
+          dislikeBtn.style.background = 'none';
+          dislikeBtn.style.borderColor = 'var(--border-color)';
+          dislikeBtn.style.color = 'var(--text-muted)';
+
+          // Ativa o botão clicado
+          if (isPositive) {
+            likeBtn.style.background = 'var(--accent-success)';
+            likeBtn.style.borderColor = 'var(--accent-success)';
+            likeBtn.style.color = 'white';
+            showNotification('Feedback positivo registrado! ✓', 'success');
+          } else {
+            dislikeBtn.style.background = 'var(--accent-danger)';
+            dislikeBtn.style.borderColor = 'var(--accent-danger)';
+            dislikeBtn.style.color = 'white';
+            showNotification('Feedback negativo registrado. Sistema irá aprender!', 'info');
+          }
+
+          // Desabilita os botões após feedback
+          likeBtn.disabled = true;
+          dislikeBtn.disabled = true;
+          likeBtn.style.cursor = 'not-allowed';
+          dislikeBtn.style.cursor = 'not-allowed';
+          likeBtn.style.opacity = '0.7';
+          dislikeBtn.style.opacity = '0.7';
+        } else {
+          showNotification('Erro ao registrar feedback', 'warning');
+        }
+      } catch (error) {
+        console.error('Erro ao enviar feedback:', error);
+        showNotification('Erro de conexão ao enviar feedback', 'warning');
+      }
+    }
   </script>
 </body>
 </html>
