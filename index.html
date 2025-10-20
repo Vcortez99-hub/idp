@@ -1284,7 +1284,9 @@
       }
     });
 
-    // Separação de Documentos
+    // Separação de Documentos - Funcionalidade removida temporariamente
+    // Comentado para evitar erros JavaScript até implementação completa
+    /*
     const separateFileDrop = document.getElementById('separateFileDrop');
     const separateFileInput = document.getElementById('separateFileInput');
     const btnSeparate = document.getElementById('btnSeparate');
@@ -1295,33 +1297,37 @@
     let separateFile = null;
 
     // Drag and drop para separação
-    separateFileDrop.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      separateFileDrop.style.borderColor = 'var(--accent-primary)';
-    });
+    if (separateFileDrop) {
+      separateFileDrop.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        separateFileDrop.style.borderColor = 'var(--accent-primary)';
+      });
 
-    separateFileDrop.addEventListener('dragleave', () => {
-      separateFileDrop.style.borderColor = 'var(--border-color)';
-    });
+      separateFileDrop.addEventListener('dragleave', () => {
+        separateFileDrop.style.borderColor = 'var(--border-color)';
+      });
 
-    separateFileDrop.addEventListener('drop', (e) => {
-      e.preventDefault();
-      separateFileDrop.style.borderColor = 'var(--border-color)';
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        handleSeparateFile(files[0]);
-      }
-    });
+      separateFileDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        separateFileDrop.style.borderColor = 'var(--border-color)';
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleSeparateFile(files[0]);
+        }
+      });
 
-    separateFileDrop.addEventListener('click', () => {
-      separateFileInput.click();
-    });
+      separateFileDrop.addEventListener('click', () => {
+        separateFileInput.click();
+      });
+    }
 
-    separateFileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        handleSeparateFile(e.target.files[0]);
-      }
-    });
+    if (separateFileInput) {
+      separateFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleSeparateFile(e.target.files[0]);
+        }
+      });
+    }
 
     function handleSeparateFile(file) {
       const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
@@ -1331,14 +1337,20 @@
       }
 
       separateFile = file;
-      separateFileDrop.innerHTML = `
-        <i class="fas fa-file-check"></i>
-        <p>${file.name}</p>
-        <small>Arquivo selecionado para separação</small>
-      `;
-      btnSeparate.disabled = false;
+      if (separateFileDrop) {
+        separateFileDrop.innerHTML = `
+          <i class="fas fa-file-check"></i>
+          <p>${file.name}</p>
+          <small>Arquivo selecionado para separação</small>
+        `;
+      }
+      if (btnSeparate) {
+        btnSeparate.disabled = false;
+      }
     }
+    */
 
+    /*
     btnSeparate.addEventListener('click', async () => {
       if (!separateFile) return;
 
@@ -1405,6 +1417,7 @@
       a.click();
       URL.revokeObjectURL(url);
     }
+    */
 
     // Função para enviar feedback de classificação
     async function submitFeedback(filename, category, isPositive, rowId) {
