@@ -487,7 +487,6 @@ filename = secure_filename(file.filename)
 - [ ] Logs de produção funcionando
 - [ ] Teste de upload de PDF realizado
 - [ ] Teste de OCR em português/francês/inglês
-- [ ] Dashboard de aprendizado acessível
 - [ ] Feedback (like/dislike) funcional
 
 ---

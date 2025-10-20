@@ -41,7 +41,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Criar diretórios necessários
-RUN mkdir -p /tmp/uploads /tmp/temp_files /app/data
+RUN mkdir -p /tmp/uploads /tmp/temp_files /tmp/processed /app/data && \
+    chmod 755 /tmp/uploads /tmp/temp_files /tmp/processed /app/data
 
 # Expor porta
 EXPOSE 5000
