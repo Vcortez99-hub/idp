@@ -312,10 +312,26 @@ Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
     
     return report
 
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    """Retorna as categorias disponíveis"""
+    return jsonify({'categories': DOCUMENT_TYPES})
+
+@app.route('/api/categories', methods=['POST'])
+def save_categories():
+    """Salva categorias personalizadas (futura implementação)"""
+    data = request.json
+    return jsonify({'message': 'Categorias salvas com sucesso'})
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Verifica se o servidor está funcionando"""
     return jsonify({'status': 'ok', 'message': 'Servidor funcionando'})
+
+@app.route('/')
+def index():
+    """Serve a página inicial"""
+    return send_file('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
