@@ -469,10 +469,21 @@ def detect_document_boundaries(text):
     return boundaries
 
 
-def classify_offline_fallback(filename, text):
-    """Classificação offline usando padrões de nome de arquivo e conteúdo"""
+def classify_offline_fallback(file_path, categories=None, text=None):
+    """Classificação offline usando padrões de nome de arquivo e conteúdo OCR"""
+    if categories is None:
+        categories = DOCUMENT_TYPES
+
+    # Extrai texto se não foi fornecido
+    if text is None:
+        text = extract_text_from_file(file_path)
+
+    filename = os.path.basename(file_path) if os.path.isfile(file_path) else file_path
     filename_lower = filename.lower()
     text_lower = text.lower() if text else ""
+
+    print(f"  [Offline] Analisando: {filename}")
+    print(f"  [Offline] Texto disponível: {len(text)} caracteres")
     
     # Padrões expandidos e unificados para classificação
     filename_patterns = {
@@ -1644,15 +1655,17 @@ def classify_documents():
                 print(f"Processando arquivo {processed_count}/{total_files}: {filename}")
                 
                 try:
+                    # PRIMEIRO: Extrai texto via OCR (sempre)
+                    print(f"  Extraindo texto via OCR...")
+                    text_content = extract_text_from_file(file_path)
+                    print(f"  OCR extraiu {len(text_content)} caracteres")
+
                     if use_offline_mode:
-                        # Usa classificação offline
-                        classification = classify_offline_fallback(file_path, categories)
+                        # Usa classificação offline COM texto OCR
+                        classification = classify_offline_fallback(file_path, categories, text_content)
                     else:
                         # Usa API OpenAI
                         classification = classify_document(file_path, api_key, categories)
-
-                    # Determina confiança OCR baseado no texto extraído
-                    text_content = extract_text_from_file(file_path)
                     ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
 
                     # Se for bulletin de salaire, extrai mês e ano para renomear
