@@ -814,31 +814,88 @@ def classify_document_hybrid(file_path, api_key, categories=None):
     """Classificação híbrida melhorada: combina assertividade de regras e IA"""
     if categories is None:
         categories = load_categories()
-    
+
     filename = os.path.basename(file_path)
-    
+
     # 1. PRIMEIRO: Extrai texto usando OCR (sempre executa)
     print(f"Extraindo texto via OCR de: {filename}")
     text_content = extract_text_from_file(file_path)
-    
-    # 2. Classificação baseada em regras com texto OCR
+
+    # 2. Detecção aprimorada para documentos franceses específicos
+    text_lower = text_content.lower() if text_content else ""
+    filename_lower = filename.lower()
+
+    # Padrões específicos dos documentos reais da pasta "Documentos Anne"
+    enhanced_patterns = {
+        'bulletin_salaire': ['bulletin', 'salaire', 'cotisations', 'brut', 'net à payer', 'employeur', 'salarié'],
+        'passaporte': ['passport', 'passeport', 'república federativa', 'passaporte', 'federal republic'],
+        'comprovante_residencia': ['edf', 'electricité de france', 'kwh', 'facture', 'abonnement'],
+        'contrato': ['contrat', 'pédagogique', 'formation', 'stage', 'convention'],
+        'lista_documents': ['liste', 'documents', 'pièces à fournir', 'membre de famille'],
+        'attestation_hebergement': ['attestation', 'hébergement', 'certifie'],
+        'facture': ['facture', 'invoice', 'montant', 'ttc', 'commande'],
+        'outros': []  # Categoria padrão
+    }
+
+    # Detecção forte baseada em padrões dos documentos reais
+    strong_match_category = None
+    strong_match_confidence = 0.0
+
+    for category, patterns in enhanced_patterns.items():
+        if category == 'outros':
+            continue
+        matches = sum(1 for pattern in patterns if pattern in text_lower or pattern in filename_lower)
+        if matches >= 2:  # Pelo menos 2 padrões encontrados
+            confidence = min(0.95, 0.60 + (matches * 0.10))
+            if confidence > strong_match_confidence:
+                strong_match_category = category
+                strong_match_confidence = confidence
+
+    # 3. Classificação baseada em regras com texto OCR
     rule_result = classify_offline_fallback(file_path, categories)
     print(f"Regras classificaram como: {rule_result['category']} (confiança: {rule_result['confidence']})")
-    
-    # 3. Verifica sistema de aprendizado
+
+    # Sobrescreve com detecção forte se encontrada
+    if strong_match_category:
+        print(f"Padrões aprimorados detectaram: {strong_match_category} (confiança: {strong_match_confidence})")
+        rule_result['category'] = strong_match_category
+        rule_result['category_name'] = categories.get(strong_match_category, 'Outros Documentos')
+        rule_result['confidence'] = strong_match_confidence
+
+    # 4. Verifica sistema de aprendizado
     learned_category, learned_confidence = learning_system.get_intelligent_classification(filename, text_content)
     if learned_category:
         print(f"Sistema aprendido sugere: {learned_category} (confiança: {learned_confidence})")
-    
+
     # Valida semanticamente o resultado das regras
     semantic_validation = validate_classification_semantically(rule_result['category'], text_content)
     rule_result['confidence'] = min(0.98, rule_result['confidence'] * semantic_validation)
+
+    # REGRA CRÍTICA 1: Se classificou como "outros", assertividade = N/A
+    if rule_result['category'] == 'outros':
+        rule_result['confidence'] = 'N/A'
+        print(f"Categoria 'outros' detectada, assertividade definida como N/A")
+
+    # REGRA CRÍTICA 2: Se classificou em categoria específica, confiança mínima de 30%
+    elif isinstance(rule_result['confidence'], (int, float)) and rule_result['confidence'] == 0.0:
+        rule_result['confidence'] = 0.30
+        print(f"Confiança 0% corrigida para mínimo de 30% (categoria específica: {rule_result['category']})")
 
     # 4. LÓGICA OTIMIZADA: Usa IA apenas quando realmente necessário
     confidence_threshold = 0.70
     use_ai_threshold = 0.85  # Só chama IA se confiança for menor que isso
 
-    if rule_result['category'] != 'outros' and rule_result['confidence'] >= use_ai_threshold:
+    # Tratamento especial para confiança N/A (categoria "outros")
+    if rule_result['confidence'] == 'N/A':
+        learning_system.record_classification(filename, rule_result['category'], 0, text_content)
+        return {
+            'category': rule_result['category'],
+            'category_name': rule_result['category_name'],
+            'method': 'rules_outros_category',
+            'confidence': 'N/A'
+        }
+
+    if rule_result['category'] != 'outros' and isinstance(rule_result['confidence'], (int, float)) and rule_result['confidence'] >= use_ai_threshold:
         # Alta confiança nas regras, não precisa de IA
         print(f"Alta confiança nas regras ({rule_result['confidence']:.2f}), pulando IA para economizar")
         learning_system.record_classification(filename, rule_result['category'], rule_result['confidence'], text_content)
