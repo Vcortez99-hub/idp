@@ -198,6 +198,55 @@ def preprocess_image_for_ocr(image):
         print(f"  Erro no pré-processamento, usando imagem original: {e}")
         return image
 
+def extract_month_year_from_bulletin(text):
+    """Extrai mês e ano de um bulletin de salaire francês"""
+    if not text:
+        return None, None
+
+    text_lower = text.lower()
+
+    # Mapeamento de meses em francês
+    meses_fr = {
+        'janvier': '01', 'jan': '01',
+        'février': '02', 'fevrier': '02', 'fev': '02', 'fév': '02',
+        'mars': '03', 'mar': '03',
+        'avril': '04', 'avr': '04',
+        'mai': '05',
+        'juin': '06',
+        'juillet': '07', 'juil': '07',
+        'août': '08', 'aout': '08',
+        'septembre': '09', 'sept': '09', 'sep': '09',
+        'octobre': '10', 'oct': '10',
+        'novembre': '11', 'nov': '11',
+        'décembre': '12', 'decembre': '12', 'dec': '12', 'déc': '12'
+    }
+
+    # Procura por padrão "Période : Mês Ano" ou "Période: Mês Ano"
+    import re
+
+    # Padrão 1: "Période : Juillet 2025" ou "période: juillet 2025"
+    match = re.search(r'période\s*[:：]\s*([a-zéèêâû]+)\s+(\d{4})', text_lower)
+    if match:
+        mes_texto = match.group(1).strip()
+        ano = match.group(2)
+        mes_num = meses_fr.get(mes_texto)
+        if mes_num:
+            return mes_num, ano
+
+    # Padrão 2: "07/2025" ou "07 2025"
+    match = re.search(r'(\d{2})[/\s-](\d{4})', text)
+    if match:
+        return match.group(1), match.group(2)
+
+    # Padrão 3: Mês por extenso seguido de ano
+    for mes_nome, mes_num in meses_fr.items():
+        pattern = rf'{mes_nome}\s+(\d{{4}})'
+        match = re.search(pattern, text_lower)
+        if match:
+            return mes_num, match.group(1)
+
+    return None, None
+
 def extract_text_from_file(file_path):
     """Extrai texto de arquivos PDF ou imagens usando OCR com melhor logging"""
     try:
@@ -612,7 +661,8 @@ def classify_offline_fallback(filename, text):
             ],
             'bulletin_salaire': [
                 'bulletin de salaire', 'bulletin de paie', 'fiche de paie',
-                'salaire brut', 'salaire net', 'cotisations sociales', 'urssaf'
+                'salaire brut', 'salaire net', 'cotisations sociales', 'urssaf',
+                'période :', 'période:', 'employeur', 'salarié', 'net à payer'
             ],
             'contrat_travail': [
                 'contrat de travail', 'cdi', 'cdd', 'contrat à durée indéterminée',
@@ -1605,8 +1655,24 @@ def classify_documents():
                     text_content = extract_text_from_file(file_path)
                     ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
 
+                    # Se for bulletin de salaire, extrai mês e ano para renomear
+                    suggested_filename = filename
+                    if classification['category'] == 'bulletin_salaire':
+                        mes, ano = extract_month_year_from_bulletin(text_content)
+                        if mes and ano:
+                            # Nomes dos meses em francês para exibição
+                            meses_nome = {
+                                '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
+                                '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
+                                '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+                            }
+                            mes_nome = meses_nome.get(mes, mes)
+                            suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
+                            print(f"  → Nome sugerido: {suggested_filename}")
+
                     results.append({
                         'filename': filename,
+                        'suggested_filename': suggested_filename,
                         'category': classification['category'],
                         'category_name': classification['category_name'],
                         'confidence': classification.get('confidence', 0.0),
@@ -1670,14 +1736,20 @@ def download_organized():
             for item in classifications:
                 filename = item['filename']
                 category_name = item['category_name']
+                suggested_filename = item.get('suggested_filename', filename)
 
                 source_path = os.path.join(session_folder, filename)
 
                 if os.path.exists(source_path):
+                    # Usa nome sugerido se disponível
+                    final_filename = suggested_filename if suggested_filename else filename
                     # Adiciona arquivo no ZIP dentro da pasta da categoria
-                    zip_path = os.path.join(category_name, filename)
+                    zip_path = os.path.join(category_name, final_filename)
                     zip_file.write(source_path, zip_path)
-                    print(f"  Adicionado ao ZIP: {zip_path}")
+                    if suggested_filename != filename:
+                        print(f"  Adicionado ao ZIP: {zip_path} (renomeado de {filename})")
+                    else:
+                        print(f"  Adicionado ao ZIP: {zip_path}")
                 else:
                     print(f"  Arquivo não encontrado: {source_path}")
 

@@ -1169,9 +1169,14 @@
 
           const rowId = `row-${r.filename.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+          // Exibe nome sugerido se diferente do original
+          const displayName = r.suggested_filename && r.suggested_filename !== r.filename
+            ? `${r.filename} <br><small style="color: var(--accent-primary); font-weight: 600;">→ ${r.suggested_filename}</small>`
+            : r.filename;
+
           return `
             <tr id="${rowId}">
-              <td><i class="fas fa-file-alt"></i> ${r.filename}</td>
+              <td><i class="fas fa-file-alt"></i> ${displayName}</td>
               <td><span class="status-indicator status-success"></span>${r.category_name}</td>
               <td>
                 <span style="color: ${getConfidenceColor(ocrConfidence)}; font-weight: 600;">
