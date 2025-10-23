@@ -24,7 +24,6 @@ import cv2
 import numpy as np
 import re
 import json
-import uuid
 from learning_system import IntelligentLearningSystem
 
 app = Flask(__name__)
@@ -1203,22 +1202,21 @@ def submit_feedback():
         print(f"Erro ao processar feedback: {e}")
         return jsonify({'error': f'Erro ao processar feedback: {str(e)}'}), 500
 
-# Dashboard temporariamente oculto
-# @app.route('/dashboard')
-# def dashboard():
-#     """Página do dashboard de aprendizado inteligente"""
-#     return render_template('dashboard.html')
+@app.route('/dashboard')
+def dashboard():
+    """Página do dashboard de aprendizado inteligente"""
+    return render_template('dashboard.html')
 
-# @app.route('/api/performance', methods=['GET'])
-# def get_performance_report():
-#     """Retorna relatório de performance do sistema de aprendizado"""
-#     try:
-#         report = learning_system.get_performance_report()
-#         return jsonify(report)
-#
-#     except Exception as e:
-#         print(f"Erro ao gerar relatório: {e}")
-#         return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
+@app.route('/api/performance', methods=['GET'])
+def get_performance_report():
+    """Retorna relatório de performance do sistema de aprendizado"""
+    try:
+        report = learning_system.get_performance_report()
+        return jsonify(report)
+        
+    except Exception as e:
+        print(f"Erro ao gerar relatório: {e}")
+        return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
 
 def extract_semantic_features(text_content):
     """Extrai features semânticas do conteúdo para validação"""
@@ -1429,6 +1427,43 @@ def classify_offline_fallback(file_path, categories):
         'method': 'offline_fallback',
         'confidence': 0.05
     }
+
+def upload_files():
+    """Endpoint para upload de arquivos"""
+    if 'files' not in request.files:
+        return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+    
+    files = request.files.getlist('files')
+    if not files or all(file.filename == '' for file in files):
+        return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
+    
+    # Criar pasta da sessão
+    session_id = str(uuid.uuid4())
+    session_folder = os.path.join(UPLOAD_FOLDER, session_id)
+    os.makedirs(session_folder, exist_ok=True)
+    
+    results = []
+    
+    for file in files:
+        if file and file.filename != '':
+            # Salvar arquivo
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(session_folder, filename)
+            file.save(file_path)
+            
+            # Classificar documento
+            classification_result = classify_document(file_path)
+            
+            results.append({
+                'filename': filename,
+                'category': classification_result['category'],
+                'category_name': classification_result['category_name']
+            })
+    
+    return jsonify({
+        'session_id': session_id,
+        'results': results
+    })
 
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
