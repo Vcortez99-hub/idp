@@ -504,7 +504,7 @@ def classify_offline_fallback(filename, text):
         'carte_resident': ['carte', 'resident', 'permanente'],
         'attestation_hebergement': ['attestation', 'hebergement', 'logement'],
         'justificatif_domicile': ['justificatif', 'domicile', 'residence'],
-        'bulletin_salaire': ['bulletin', 'salaire', 'paie'],
+        'bulletin_salaire': ['bulletin-de-salaire', 'bulletin_salaire', 'bulletin', 'salaire', 'paie', 'fiche-de-paie'],
         'contrat_travail': ['contrat', 'travail', 'emploi'],
         'attestation_employeur': ['attestation', 'employeur', 'travail'],
         'avis_imposition': ['avis', 'imposition', 'impot'],
@@ -530,10 +530,9 @@ def classify_offline_fallback(filename, text):
         # Documentos específicos adicionais
         'attestation_honneur': ['attestation', 'honneur', 'lhonneur', 'sur_lhonneur', 'epoux', 'requerante'],
         'attestation_depot': ['attestation', 'depot', 'de_depot'],
-        'bulletin_salaire': ['bulletin', 'salaire', 'exemple', 'de_bulletin', 'pour_2025', 'epoux'],
         'passeport': ['passeport', 'passport'],
-        
-        'outros': ['documento', 'arquivo', 'papel']
+
+        'outros': []  # Removido padrões genéricos para evitar false positives
     }
     
     # Classificação baseada no nome do arquivo com confiança alta
