@@ -275,12 +275,20 @@ def extract_text_from_file(file_path):
                     text += page_text + "\n"
 
                     # Verifica se a página tem imagens (indicativo de PDF escaneado)
-                    if '/XObject' in page.get('/Resources', {}):
-                        xobjects = page['/Resources']['/XObject'].get_object()
-                        for obj in xobjects:
-                            if xobjects[obj]['/Subtype'] == '/Image':
-                                has_images = True
-                                break
+                    try:
+                        resources = page.get('/Resources')
+                        if resources and '/XObject' in resources:
+                            xobjects = resources['/XObject']
+                            if hasattr(xobjects, 'get_object'):
+                                xobjects = xobjects.get_object()
+                            if isinstance(xobjects, dict):
+                                for obj in xobjects:
+                                    if xobjects[obj]['/Subtype'] == '/Image':
+                                        has_images = True
+                                        break
+                    except Exception as e:
+                        print(f"  Erro ao verificar imagens na página {page_num + 1}: {e}")
+                        has_images = True  # Assume que tem imagens para forçar OCR
 
                     if page_num < 3:  # Log detalhado apenas para as primeiras páginas
                         print(f"  Página {page_num + 1}: {len(page_text)} caracteres extraídos")
