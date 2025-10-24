@@ -1134,16 +1134,39 @@
     btnClassify.addEventListener('click', async () => {
       setButtonLoading(btnClassify, true);
 
+      // Mostra mensagem de processamento
+      summary.innerHTML = `
+        <div class="summary" style="color: var(--accent-warning);">
+          <i class="fas fa-sync fa-spin"></i>
+          Processando documentos com OCR... Isso pode levar alguns minutos.
+        </div>
+      `;
+
       try {
+        // Timeout de 10 minutos para processar arquivos grandes
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 600000);
+
         const res = await fetch(`${API_URL}/classify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId, api_key: apiKey, categories })
+          body: JSON.stringify({ session_id: sessionId, api_key: apiKey, categories }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          throw new Error(`Erro HTTP: ${res.status}`);
+        }
+
         const data = await res.json();
-        if(data.error){ 
+        console.log('Dados recebidos:', data);
+
+        if(data.error){
           showNotification(data.error, 'warning');
-          return; 
+          setButtonLoading(btnClassify, false);
+          return;
         }
         classifications = data.results;
         summary.innerHTML = `
