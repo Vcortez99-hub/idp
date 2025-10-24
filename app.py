@@ -25,6 +25,8 @@ import numpy as np
 import re
 import json
 from learning_system import IntelligentLearningSystem
+import threading
+from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
@@ -34,6 +36,10 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
 # Inicializa o sistema de aprendizado inteligente
 learning_system = IntelligentLearningSystem()
+
+# Sistema de fila para processamento assíncrono
+processing_jobs = {}  # {session_id: {'status': 'processing'|'completed'|'error', 'progress': 0, 'total': 0, 'results': [], 'error': ''}}
+jobs_lock = threading.Lock()
 
 # Configuração de pastas para produção
 if os.environ.get('RENDER'):
@@ -1464,23 +1470,123 @@ def upload_files():
         'count': len(uploaded_files)
     })
 
+def process_documents_async(session_id, api_key, categories, use_offline_mode):
+    """Processa documentos em background thread"""
+    try:
+        with jobs_lock:
+            processing_jobs[session_id] = {
+                'status': 'processing',
+                'progress': 0,
+                'total': 0,
+                'results': [],
+                'error': ''
+            }
+
+        session_folder = os.path.join(UPLOAD_FOLDER, session_id)
+        files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
+        total_files = len(files)
+
+        with jobs_lock:
+            processing_jobs[session_id]['total'] = total_files
+
+        print(f"[ASYNC] Iniciando classificação de {total_files} arquivos...")
+        results = []
+
+        for idx, filename in enumerate(files, 1):
+            file_path = os.path.join(session_folder, filename)
+            print(f"[ASYNC] Processando arquivo {idx}/{total_files}: {filename}")
+
+            try:
+                text_content = extract_text_from_file(file_path)
+                print(f"[ASYNC]   OCR extraiu {len(text_content)} caracteres")
+
+                if use_offline_mode:
+                    classification = classify_offline_fallback(file_path, categories, text_content)
+                else:
+                    classification = classify_document(file_path, api_key, categories)
+
+                ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
+
+                suggested_filename = filename
+                if classification['category'] == 'bulletin_salaire':
+                    mes, ano = extract_month_year_from_bulletin(text_content)
+                    if mes and ano:
+                        meses_nome = {
+                            '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
+                            '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
+                            '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+                        }
+                        mes_nome = meses_nome.get(mes, mes)
+                        suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
+
+                result = {
+                    'filename': filename,
+                    'suggested_filename': suggested_filename,
+                    'category': classification['category'],
+                    'category_name': classification['category_name'],
+                    'confidence': classification.get('confidence', 0.0),
+                    'method': classification.get('method', 'unknown'),
+                    'ocr_confidence': round(ocr_confidence, 2),
+                    'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower()
+                }
+                results.append(result)
+
+                # Atualiza progresso
+                with jobs_lock:
+                    processing_jobs[session_id]['progress'] = idx
+                    processing_jobs[session_id]['results'] = results
+
+                print(f"[ASYNC]   ✓ {filename} classificado como: {classification['category_name']} (confiança: {classification.get('confidence', 'N/A')})")
+
+            except Exception as e:
+                print(f"[ASYNC]   ✗ Erro ao classificar {filename}: {str(e)}")
+                results.append({
+                    'filename': filename,
+                    'category': 'outros',
+                    'category_name': categories.get('outros', 'Outros Documentos')
+                })
+                with jobs_lock:
+                    processing_jobs[session_id]['progress'] = idx
+                    processing_jobs[session_id]['results'] = results
+
+        # Marca como completo
+        with jobs_lock:
+            processing_jobs[session_id]['status'] = 'completed'
+
+        print(f"[ASYNC] Classificação concluída! {len(results)} arquivos processados.")
+
+    except Exception as e:
+        print(f"[ASYNC] Erro na classificação: {str(e)}")
+        with jobs_lock:
+            processing_jobs[session_id]['status'] = 'error'
+            processing_jobs[session_id]['error'] = str(e)
+
 @app.route('/api/classify', methods=['POST'])
 def classify_documents():
+    """Inicia processamento assíncrono e retorna imediatamente"""
     try:
         data = request.get_json()
         session_id = data.get('session_id')
         api_key = data.get('api_key')
         categories = data.get('categories', DOCUMENT_TYPES)
-        
+
         if not session_id:
             return jsonify({'error': 'Session ID é obrigatório'}), 400
-        
-        # Se não há API key, usa modo offline
+
+        session_folder = os.path.join(UPLOAD_FOLDER, session_id)
+        if not os.path.exists(session_folder):
+            return jsonify({'error': 'Sessão não encontrada'}), 404
+
+        # Verifica se já está processando
+        with jobs_lock:
+            if session_id in processing_jobs and processing_jobs[session_id]['status'] == 'processing':
+                return jsonify({'error': 'Já existe um processamento em andamento'}), 409
+
+        # Determina modo offline
         if not api_key:
             print("Modo offline ativado - sem API key fornecida")
             use_offline_mode = True
         else:
-            # Testa a conexão com a API OpenAI primeiro
             connection_ok, connection_msg = test_openai_connection(api_key)
             if not connection_ok:
                 print(f"Falha no teste de conexão: {connection_msg}")
@@ -1488,83 +1594,42 @@ def classify_documents():
                 use_offline_mode = True
             else:
                 use_offline_mode = False
-        
-        session_folder = os.path.join(UPLOAD_FOLDER, session_id)
-        if not os.path.exists(session_folder):
-            return jsonify({'error': 'Sessão não encontrada'}), 404
-        
-        results = []
-        total_files = len([f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))])
-        processed_count = 0
-        
-        print(f"Iniciando classificação de {total_files} arquivos...")
-        
-        for filename in os.listdir(session_folder):
-            file_path = os.path.join(session_folder, filename)
-            if os.path.isfile(file_path):
-                processed_count += 1
-                print(f"Processando arquivo {processed_count}/{total_files}: {filename}")
-                
-                try:
-                    # PRIMEIRO: Extrai texto via OCR (sempre)
-                    print(f"  Extraindo texto via OCR...")
-                    text_content = extract_text_from_file(file_path)
-                    print(f"  OCR extraiu {len(text_content)} caracteres")
 
-                    if use_offline_mode:
-                        # Usa classificação offline COM texto OCR
-                        classification = classify_offline_fallback(file_path, categories, text_content)
-                    else:
-                        # Usa API OpenAI
-                        classification = classify_document(file_path, api_key, categories)
-                    ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
+        # Inicia processamento em background thread
+        thread = threading.Thread(
+            target=process_documents_async,
+            args=(session_id, api_key, categories, use_offline_mode),
+            daemon=True
+        )
+        thread.start()
 
-                    # Se for bulletin de salaire, extrai mês e ano para renomear
-                    suggested_filename = filename
-                    if classification['category'] == 'bulletin_salaire':
-                        mes, ano = extract_month_year_from_bulletin(text_content)
-                        if mes and ano:
-                            # Nomes dos meses em francês para exibição
-                            meses_nome = {
-                                '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
-                                '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
-                                '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
-                            }
-                            mes_nome = meses_nome.get(mes, mes)
-                            suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
-                            print(f"  → Nome sugerido: {suggested_filename}")
+        print(f"Processamento assíncrono iniciado para sessão {session_id}")
 
-                    results.append({
-                        'filename': filename,
-                        'suggested_filename': suggested_filename,
-                        'category': classification['category'],
-                        'category_name': classification['category_name'],
-                        'confidence': classification.get('confidence', 0.0),
-                        'method': classification.get('method', 'unknown'),
-                        'ocr_confidence': round(ocr_confidence, 2),
-                        'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower()
-                    })
-                    
-                    print(f"  ✓ {filename} classificado como: {classification['category_name']} (confiança: {classification.get('confidence', 'N/A')})")
-                    
-                except Exception as e:
-                    print(f"  ✗ Erro ao classificar {filename}: {str(e)}")
-                    results.append({
-                        'filename': filename,
-                        'category': 'outros',
-                        'category_name': categories.get('outros', 'Outros Documentos')
-                    })
-        
-        print(f"Classificação concluída! {len(results)} arquivos processados.")
-        
         return jsonify({
-            'results': results,
-            'total_files': len(results)
-        })
-    
+            'status': 'processing',
+            'message': 'Processamento iniciado em background',
+            'session_id': session_id
+        }), 202
+
     except Exception as e:
-        print(f"Erro na classificação: {str(e)}")
+        print(f"Erro ao iniciar classificação: {str(e)}")
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+
+@app.route('/api/classify/status/<session_id>', methods=['GET'])
+def get_classification_status(session_id):
+    """Retorna o status do processamento assíncrono"""
+    with jobs_lock:
+        if session_id not in processing_jobs:
+            return jsonify({'error': 'Sessão não encontrada'}), 404
+
+        job = processing_jobs[session_id]
+        return jsonify({
+            'status': job['status'],
+            'progress': job['progress'],
+            'total': job['total'],
+            'results': job['results'] if job['status'] == 'completed' else [],
+            'error': job['error']
+        })
 
 @app.route('/api/download', methods=['POST'])
 def download_organized():
