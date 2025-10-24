@@ -1670,7 +1670,14 @@ Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Verifica se o servidor está funcionando"""
-    return jsonify({'status': 'ok', 'message': 'Servidor funcionando'})
+    return jsonify({
+        'status': 'ok',
+        'message': 'Servidor funcionando',
+        'version': '2.0.1-fixed',
+        'commit': '39b4e6a',
+        'ocr_enabled': True,
+        'duplicate_function_removed': True
+    })
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
@@ -1777,8 +1784,14 @@ def separate_documents():
 
 @app.route('/')
 def index():
-    """Serve a página frontend"""
-    return send_file('index.html')
+    """Serve a página frontend com headers anti-cache"""
+    response = send_file('index.html')
+    # Headers anti-cache para forçar reload em todos os clientes
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['X-App-Version'] = '2.0.1-fixed'
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
