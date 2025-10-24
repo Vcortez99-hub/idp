@@ -1069,6 +1069,22 @@
       while (attempts < maxAttempts) {
         try {
           const statusRes = await fetch(`${API_URL}/classify/status/${sessionId}`);
+
+          // Se 404, servidor ainda não tem endpoint de polling (versão antiga)
+          if (statusRes.status === 404) {
+            console.warn('Servidor sem suporte a polling assíncrono - aguardando rebuild...');
+            summary.innerHTML = `
+              <div class="summary" style="color: var(--accent-warning);">
+                <i class="fas fa-sync fa-spin"></i>
+                Aguardando deploy do servidor... Por favor, tente novamente em alguns minutos.
+              </div>
+            `;
+            showNotification('Servidor atualizando. Aguarde alguns minutos e tente novamente.', 'warning');
+            setButtonLoading(btnClassify, false);
+            btnClassify.innerHTML = '<i class="fas fa-magic"></i> Classificar Documentos';
+            return;
+          }
+
           if (!statusRes.ok) {
             throw new Error(`Erro ao verificar status: ${statusRes.status}`);
           }
