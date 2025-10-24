@@ -47,5 +47,5 @@ RUN mkdir -p /tmp/uploads /tmp/temp_files /tmp/processed /app/data && \
 # Expor porta
 EXPOSE 5000
 
-# Comando de inicialização
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+# Comando de inicialização (timeout 600s para OCR pesado)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "2", "--timeout", "600", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
