@@ -264,10 +264,10 @@ def extract_text_from_file(file_path):
                 total_pages = len(pdf_reader.pages)
                 print(f"  PDF com {total_pages} páginas")
                 
-                # Limita a extração para PDFs muito grandes (mais de 10 páginas)
-                max_pages = min(10, total_pages) if total_pages > 10 else total_pages
+                # OTIMIZAÇÃO: Para classificação, só precisamos das primeiras 2 páginas
+                max_pages = min(2, total_pages)
                 if max_pages < total_pages:
-                    print(f"  Limitando extração às primeiras {max_pages} páginas para otimização")
+                    print(f"  Limitando extração às primeiras {max_pages} páginas (suficiente para classificação)")
                 
                 for page_num in range(max_pages):
                     page = pdf_reader.pages[page_num]
@@ -294,17 +294,23 @@ def extract_text_from_file(file_path):
                         print(f"  Página {page_num + 1}: {len(page_text)} caracteres extraídos")
             
             extracted_text = text.strip()
-            
-            # Se o PDF tem pouco texto mas tem imagens, aplica OCR em TODAS as páginas
+
+            # OTIMIZAÇÃO: Só aplica OCR se realmente necessário (PDF escaneado SEM texto)
+            # Se já tem texto suficiente (>100 chars ou >20 palavras), pula OCR
+            if len(extracted_text) >= 100 or len(extracted_text.split()) >= 20:
+                print(f"  ✓ PDF já tem texto extraível ({len(extracted_text)} chars, {len(extracted_text.split())} palavras) - PULANDO OCR")
+                return extracted_text
+
+            # Se o PDF tem pouco texto mas tem imagens, aplica OCR apenas nas páginas processadas
             if (len(extracted_text) < 100 and has_images) or (has_images and len(extracted_text.split()) < 20):
-                print(f"  PDF parece ser escaneado (pouco texto: {len(extracted_text)} chars), aplicando OCR em todas as páginas...")
+                print(f"  PDF parece ser escaneado (pouco texto: {len(extracted_text)} chars), aplicando OCR...")
                 try:
                     import fitz  # PyMuPDF para converter PDF em imagem
 
-                    # Processa TODAS as páginas do PDF com OCR
+                    # OTIMIZAÇÃO: Processa apenas as primeiras 2 páginas (suficiente para classificação)
                     pdf_document = fitz.open(file_path)
                     total_ocr_text = ""
-                    pages_to_process = min(len(pdf_document), max_pages)  # Respeita max_pages
+                    pages_to_process = min(len(pdf_document), 2)  # Máximo 2 páginas para velocidade
 
                     for page_num in range(pages_to_process):
                         page = pdf_document[page_num]
