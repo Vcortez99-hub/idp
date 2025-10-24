@@ -1473,21 +1473,9 @@ def upload_files():
 def process_documents_async(session_id, api_key, categories, use_offline_mode):
     """Processa documentos em background thread"""
     try:
-        with jobs_lock:
-            processing_jobs[session_id] = {
-                'status': 'processing',
-                'progress': 0,
-                'total': 0,
-                'results': [],
-                'error': ''
-            }
-
         session_folder = os.path.join(UPLOAD_FOLDER, session_id)
         files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
         total_files = len(files)
-
-        with jobs_lock:
-            processing_jobs[session_id]['total'] = total_files
 
         print(f"[ASYNC] Iniciando classificação de {total_files} arquivos...")
         results = []
@@ -1594,6 +1582,17 @@ def classify_documents():
                 use_offline_mode = True
             else:
                 use_offline_mode = False
+
+        # CRÍTICO: Inicializa job ANTES de iniciar thread (evita race condition)
+        files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
+        with jobs_lock:
+            processing_jobs[session_id] = {
+                'status': 'processing',
+                'progress': 0,
+                'total': len(files),
+                'results': [],
+                'error': ''
+            }
 
         # Inicia processamento em background thread
         thread = threading.Thread(
