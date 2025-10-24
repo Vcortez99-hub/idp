@@ -135,8 +135,13 @@ def encode_image(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 def preprocess_image_for_ocr(image):
-    """Pré-processa imagem para melhorar precisão do OCR"""
+    """Pré-processa imagem para melhorar precisão do OCR
+
+    OTIMIZADO: Modo simplificado em produção (Render) para velocidade
+    """
     try:
+        is_production = os.environ.get('RENDER') is not None
+
         # Converte PIL Image para numpy array (OpenCV)
         img_array = np.array(image)
 
@@ -146,6 +151,21 @@ def preprocess_image_for_ocr(image):
         else:
             gray = img_array
 
+        if is_production:
+            # MODO PRODUÇÃO: Processamento MÍNIMO e RÁPIDO (Render CPU fraca)
+            # Apenas redimensionamento leve + binarização simples
+            height, width = gray.shape
+            if height < 800 or width < 800:
+                scale_factor = 1.3
+                gray = cv2.resize(gray, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
+
+            # Binarização Otsu apenas (muito rápida)
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+            print("  ⚡ Pré-processamento rápido (produção)")
+            return Image.fromarray(binary)
+
+        # MODO DESENVOLVIMENTO: Processamento completo e de alta qualidade
         # 1. Redimensiona se a imagem for muito pequena (melhora OCR)
         height, width = gray.shape
         if height < 1000 or width < 1000:
