@@ -19,3 +19,8 @@ Documentos/
 .vscode/
 .idea/
 node_modules/
+.claude/
+nul
+render.yaml
+render-buildpack.yaml
+app_log.txt

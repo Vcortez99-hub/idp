@@ -1,0 +1,40 @@
+# fly.toml - Configuração do Fly.io para IDP Classifier
+app = "idp-classifier"
+primary_region = "gru"  # São Paulo - mais próximo do Brasil
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  RENDER = "true"  # Mantém compatibilidade com código existente
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false  # Mantém sempre ativo
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 40
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512  # 512MB - melhor que Render free (512MB vs 512MB mas CPU mais rápida)
+
+[[mounts]]
+  source = "idp_data"
+  destination = "/app/data"
+  initial_size = "1GB"  # Volume persistente para banco de dados
