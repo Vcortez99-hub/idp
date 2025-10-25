@@ -1787,18 +1787,23 @@ def classify_documents():
             if session_id in processing_jobs and processing_jobs[session_id]['status'] == 'processing':
                 return jsonify({'error': 'Já existe um processamento em andamento'}), 409
 
-        # Determina modo offline
-        if not api_key:
-            print("Modo offline ativado - sem API key fornecida")
-            use_offline_mode = True
-        else:
-            connection_ok, connection_msg = test_openai_connection(api_key)
-            if not connection_ok:
-                print(f"Falha no teste de conexão: {connection_msg}")
-                print("Ativando modo offline como fallback")
-                use_offline_mode = True
-            else:
-                use_offline_mode = False
+        # SEMPRE usa modo offline (evita timeout de 502 no Fly.io)
+        # Teste de conexão com OpenAI demora até 10s, causando timeout no proxy
+        print("Modo offline ativado (otimizado para Fly.io)")
+        use_offline_mode = True
+
+        # Código anterior (comentado para evitar timeout):
+        # if not api_key:
+        #     print("Modo offline ativado - sem API key fornecida")
+        #     use_offline_mode = True
+        # else:
+        #     connection_ok, connection_msg = test_openai_connection(api_key)  # Demora 10s!
+        #     if not connection_ok:
+        #         print(f"Falha no teste de conexão: {connection_msg}")
+        #         print("Ativando modo offline como fallback")
+        #         use_offline_mode = True
+        #     else:
+        #         use_offline_mode = False
 
         # CRÍTICO: Inicializa job ANTES de iniciar thread (evita race condition)
         files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
