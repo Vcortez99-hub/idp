@@ -677,7 +677,7 @@
             <i class="fas fa-file-upload"></i>
             <p>Arraste arquivos aqui ou clique para selecionar</p>
             <small>Formatos aceitos: PDF, PNG, JPG, JPEG</small>
-            <small style="display: block; margin-top: 0.5rem; color: var(--accent-warning);">⚠️ Limite: 3 arquivos por vez (plano free 512MB)</small>
+            <small style="display: block; margin-top: 0.5rem; color: var(--accent-warning);">⚠️ Limite: 10 arquivos por vez</small>
           </div>
           <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display: none;">
           <button id="btnUpload" disabled style="margin-top: 1.5rem;">
@@ -1234,10 +1234,10 @@
       e.preventDefault();
       fileDrop.classList.remove('dragover');
 
-      const MAX_FILES = 3; // Limite para 512MB RAM sem custos adicionais
+      const MAX_FILES = 10; // Limite de teste para 512MB RAM
 
       if (e.dataTransfer.files.length > MAX_FILES) {
-        showNotification(`⚠️ Limite de ${MAX_FILES} arquivos por vez (plano free 512MB RAM). Para processar mais arquivos, considere upgrade para 1GB.`, 'error');
+        showNotification(`⚠️ Limite de ${MAX_FILES} arquivos por vez.`, 'error');
         return;
       }
 
@@ -1247,10 +1247,10 @@
     });
 
     fileInput.addEventListener('change', () => {
-      const MAX_FILES = 3; // Limite para 512MB RAM sem custos adicionais
+      const MAX_FILES = 10; // Limite de teste para 512MB RAM
 
       if (fileInput.files.length > MAX_FILES) {
-        showNotification(`⚠️ Limite de ${MAX_FILES} arquivos por vez (plano free 512MB RAM). Para processar mais arquivos, considere upgrade para 1GB.`, 'error');
+        showNotification(`⚠️ Limite de ${MAX_FILES} arquivos por vez.`, 'error');
         fileInput.value = ''; // Limpa seleção
         btnUpload.disabled = true;
         return;
