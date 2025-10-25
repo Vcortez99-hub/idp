@@ -111,6 +111,8 @@ DOCUMENT_TYPES = {
     'attestation_depot': 'Comprovante de Depósito',
     'passeport': 'Passaporte',
     'conta_telefone': 'Conta de Telefone',
+    # Fotos pessoais (não confundir com documentos que contêm fotos)
+    'fotos_pessoas': 'Fotos de Pessoas',
     'outros': 'Outros Documentos'
 }
 
@@ -218,6 +220,78 @@ def compress_image_for_ocr(image, max_size=2000):
     compressed = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     print(f"  Imagem comprimida: {width}x{height} → {new_width}x{new_height}")
     return compressed
+
+def detect_people_photo(file_path, text_content=""):
+    """
+    Detecta se é foto de pessoas (casal, grupo, foto casual)
+    NÃO CONFUNDE com documentos que contêm fotos (RG, CNH, Passaporte)
+
+    Retorna: (is_people_photo: bool, confidence: float, num_faces: int)
+    """
+    try:
+        # Se tiver muito texto, provavelmente é documento, não foto casual
+        if text_content and len(text_content.strip()) > 100:
+            return False, 0.0, 0
+
+        # Palavras-chave que indicam DOCUMENTO (não foto casual)
+        document_keywords = [
+            'identidade', 'rg', 'cnh', 'carteira', 'habilitação', 'passaporte',
+            'passport', 'república', 'brasil', 'cpf', 'data nascimento',
+            'validade', 'documento', 'número', 'ministério', 'república',
+            'identity', 'driver', 'license', 'national', 'federal'
+        ]
+
+        text_lower = text_content.lower() if text_content else ""
+        if any(keyword in text_lower for keyword in document_keywords):
+            return False, 0.0, 0  # É documento, não foto
+
+        # Tenta carregar a imagem
+        if file_path.lower().endswith('.pdf'):
+            return False, 0.0, 0  # PDFs não são fotos casuais
+
+        img = cv2.imread(file_path)
+        if img is None:
+            return False, 0.0, 0
+
+        # Detecta rostos usando Haar Cascade (leve e rápido)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Usa detector de rostos do OpenCV
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+        num_faces = len(faces)
+
+        # Análise da imagem
+        height, width = img.shape[:2]
+        img_area = height * width
+
+        if num_faces == 0:
+            return False, 0.0, 0  # Sem rostos = não é foto de pessoas
+
+        # Calcula área total dos rostos
+        total_face_area = sum(w * h for (x, y, w, h) in faces)
+        face_ratio = total_face_area / img_area
+
+        # Regras de classificação:
+        # 1. Se tem 2+ rostos grandes = casal/grupo (alta confiança)
+        if num_faces >= 2 and face_ratio > 0.1:
+            return True, 0.95, num_faces
+
+        # 2. Se tem 1 rosto MUITO grande e pouco texto = selfie/retrato
+        if num_faces == 1 and face_ratio > 0.25 and len(text_lower.strip()) < 20:
+            return True, 0.85, num_faces
+
+        # 3. Se tem 3+ rostos (mesmo pequenos) = foto de grupo
+        if num_faces >= 3:
+            return True, 0.90, num_faces
+
+        # Caso contrário: provavelmente é documento com foto
+        return False, 0.0, num_faces
+
+    except Exception as e:
+        print(f"Erro ao detectar foto de pessoas: {e}")
+        return False, 0.0, 0
 
 def preprocess_image_for_ocr(image):
     """Pré-processa imagem para melhorar precisão do OCR
@@ -1019,6 +1093,19 @@ def classify_document_hybrid(file_path, api_key, categories=None):
     # 1. PRIMEIRO: Extrai texto usando OCR (sempre executa)
     print(f"Extraindo texto via OCR de: {filename}")
     text_content = extract_text_from_file(file_path)
+
+    # 1.5. DETECÇÃO DE FOTOS DE PESSOAS (antes de outras classificações)
+    # Evita conflito com documentos que contêm fotos (RG, CNH, Passaporte)
+    is_people_photo, photo_confidence, num_faces = detect_people_photo(file_path, text_content)
+    if is_people_photo and photo_confidence > 0.80:
+        print(f"✓ FOTO DE PESSOAS detectada: {num_faces} rosto(s), confiança {photo_confidence:.2f}")
+        return {
+            'category': 'fotos_pessoas',
+            'category_name': 'Fotos de Pessoas',
+            'confidence': photo_confidence,
+            'method': 'face_detection',
+            'details': f'{num_faces} pessoa(s) detectada(s)'
+        }
 
     # 2. Detecção aprimorada para documentos franceses específicos
     text_lower = text_content.lower() if text_content else ""
