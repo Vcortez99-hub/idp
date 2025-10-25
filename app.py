@@ -1653,11 +1653,11 @@ def upload_files():
 
     files = request.files.getlist('files[]')
 
-    # Limitar batch size para 512MB RAM (teste com 10 arquivos)
-    MAX_FILES_TEST = 10
-    if len(files) > MAX_FILES_TEST:
+    # Limitar batch size para 512MB RAM (8 arquivos = margem segura)
+    MAX_FILES_SAFE = 8
+    if len(files) > MAX_FILES_SAFE:
         return jsonify({
-            'error': f'Limite de {MAX_FILES_TEST} arquivos por vez.'
+            'error': f'Limite de {MAX_FILES_SAFE} arquivos por vez para estabilidade.'
         }), 400
 
     api_key = request.form.get('api_key', '')  # API key opcional
