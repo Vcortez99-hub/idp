@@ -1,5 +1,5 @@
 # fly.toml - Configuração do Fly.io para IDP Classifier
-app = "idp-classifier"
+app = "idp-evizeq"
 primary_region = "gru"  # São Paulo - mais próximo do Brasil
 
 [build]
@@ -32,7 +32,7 @@ primary_region = "gru"  # São Paulo - mais próximo do Brasil
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory_mb = 512  # 512MB - melhor que Render free (512MB vs 512MB mas CPU mais rápida)
+  memory_mb = 1024  # 1GB - RECOMENDADO para OCR (~$5/mês) - suporta 10-15 arquivos/batch
 
 [[mounts]]
   source = "idp_data"
