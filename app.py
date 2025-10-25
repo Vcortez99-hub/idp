@@ -1565,6 +1565,14 @@ def upload_files():
         return jsonify({'error': 'Nenhum arquivo enviado'}), 400
 
     files = request.files.getlist('files[]')
+
+    # Limitar batch size para 512MB RAM (evita OOM sem custos adicionais)
+    MAX_FILES_512MB = 3
+    if len(files) > MAX_FILES_512MB:
+        return jsonify({
+            'error': f'Limite de {MAX_FILES_512MB} arquivos por vez no plano free (512MB RAM). Para processar mais arquivos, considere upgrade para 1GB.'
+        }), 400
+
     api_key = request.form.get('api_key', '')  # API key opcional
 
     # Cria pasta única para esta sessão
