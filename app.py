@@ -1653,8 +1653,8 @@ def upload_files():
 
     files = request.files.getlist('files[]')
 
-    # Limitar batch size para 512MB RAM (8 arquivos = margem segura)
-    MAX_FILES_SAFE = 8
+    # Limitar batch size para 512MB RAM (5 arquivos = ultra estável)
+    MAX_FILES_SAFE = 5
     if len(files) > MAX_FILES_SAFE:
         return jsonify({
             'error': f'Limite de {MAX_FILES_SAFE} arquivos por vez para estabilidade.'
