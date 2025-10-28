@@ -528,11 +528,27 @@ def extract_text_from_file(file_path):
                         print(f"  Pré-processando página {page_num + 1}...")
                         processed_image = preprocess_image_for_ocr(image)
 
-                        # Aplica OCR com configuração otimizada e RÁPIDA
+                        # Aplica OCR com fallback inteligente PT → FR
                         try:
-                            # OTIMIZAÇÃO: Usa apenas português (3x mais rápido que multi-idioma)
                             custom_config = r'--oem 3 --psm 6'
+
+                            # Tenta português primeiro (mais rápido)
                             page_ocr_text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
+
+                            # Fallback para francês se texto for muito curto ou suspeito
+                            if len(page_ocr_text.strip()) < 50:
+                                print(f"  Texto curto em PT, tentando francês...")
+                                page_ocr_text_fr = pytesseract.image_to_string(processed_image, lang='fra', config=custom_config)
+                                if len(page_ocr_text_fr.strip()) > len(page_ocr_text.strip()):
+                                    page_ocr_text = page_ocr_text_fr
+                                    print(f"  ✓ Francês reconheceu mais texto")
+
+                            # Detecção de francês por palavras-chave
+                            french_keywords = ['attestation', 'préfecture', 'tribunal', 'monsieur', 'madame', 'bulletin', 'salaire', 'employeur']
+                            if any(kw in page_ocr_text.lower() for kw in french_keywords):
+                                print(f"  Detectado francês, reprocessando com lang=fra+por...")
+                                page_ocr_text = pytesseract.image_to_string(processed_image, lang='fra+por', config=custom_config)
+
                             total_ocr_text += page_ocr_text + "\n"
                             print(f"  Página {page_num + 1}: {len(page_ocr_text)} caracteres extraídos via OCR")
                         except Exception as ocr_error:
@@ -558,11 +574,21 @@ def extract_text_from_file(file_path):
                                 break
                             # Pré-processa
                             processed_image = preprocess_image_for_ocr(image)
-                            # Aplica OCR
-                            custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
-                            # OTIMIZAÇÃO: Apenas português (3x mais rápido)
+
+                            # OCR com fallback inteligente PT → FR
                             custom_config = r'--oem 3 --psm 6'
                             page_ocr_text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
+
+                            # Fallback para francês se necessário
+                            if len(page_ocr_text.strip()) < 50:
+                                page_ocr_text_fr = pytesseract.image_to_string(processed_image, lang='fra', config=custom_config)
+                                if len(page_ocr_text_fr.strip()) > len(page_ocr_text.strip()):
+                                    page_ocr_text = page_ocr_text_fr
+
+                            french_keywords = ['attestation', 'préfecture', 'tribunal', 'monsieur', 'madame', 'bulletin', 'salaire']
+                            if any(kw in page_ocr_text.lower() for kw in french_keywords):
+                                page_ocr_text = pytesseract.image_to_string(processed_image, lang='fra+por', config=custom_config)
+
                             total_ocr_text += page_ocr_text + "\n"
                             print(f"  Página {idx + 1}: {len(page_ocr_text)} caracteres via OCR")
 
@@ -596,21 +622,32 @@ def extract_text_from_file(file_path):
                 # preserve_interword_spaces: mantém espaços entre palavras
                 custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
 
-                # Tenta com múltiplos idiomas simultaneamente
+                # OCR com fallback inteligente PT → FR
                 try:
-                    # OTIMIZAÇÃO: Apenas português (3x mais rápido)
                     custom_config = r'--oem 3 --psm 6'
+
+                    # Tenta português primeiro
                     text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
-                    print(f"  OCR multi-idioma: {len(text)} caracteres extraídos")
+                    print(f"  OCR português: {len(text)} caracteres extraídos")
+
+                    # Fallback para francês se texto curto
+                    if len(text.strip()) < 50:
+                        print(f"  Texto curto, tentando francês...")
+                        text_fr = pytesseract.image_to_string(processed_image, lang='fra', config=custom_config)
+                        if len(text_fr.strip()) > len(text.strip()):
+                            text = text_fr
+                            print(f"  ✓ Francês reconheceu mais texto")
+
+                    # Detecção de francês e reprocessamento
+                    french_keywords = ['attestation', 'préfecture', 'tribunal', 'monsieur', 'madame', 'bulletin', 'salaire', 'employeur']
+                    if any(kw in text.lower() for kw in french_keywords):
+                        print(f"  Detectado francês, reprocessando com fra+por...")
+                        text = pytesseract.image_to_string(processed_image, lang='fra+por', config=custom_config)
+                        print(f"  OCR bi-idioma: {len(text)} caracteres extraídos")
+
                 except Exception as e:
-                    print(f"  Erro com multi-idioma: {e}, tentando apenas português...")
-                    try:
-                        text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
-                        print(f"  OCR português: {len(text)} caracteres extraídos")
-                    except:
-                        print("  Português não disponível, usando inglês para OCR")
-                        text = pytesseract.image_to_string(processed_image, lang='eng', config=custom_config)
-                        print(f"  OCR inglês: {len(text)} caracteres extraídos")
+                    print(f"  Erro no OCR: {e}")
+                    text = ""
 
                 extracted_text = text.strip()
                 if extracted_text:
