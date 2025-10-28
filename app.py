@@ -272,18 +272,20 @@ def detect_people_photo(file_path, text_content=""):
         total_face_area = sum(w * h for (x, y, w, h) in faces)
         face_ratio = total_face_area / img_area
 
-        # Regras de classificação:
-        # 1. Se tem 2+ rostos grandes = casal/grupo (alta confiança)
-        if num_faces >= 2 and face_ratio > 0.1:
-            return True, 0.95, num_faces
+        # Regras de classificação OTIMIZADAS:
+        # 1. Se tem 2+ rostos (casal/grupo) = ALTA CONFIANÇA
+        if num_faces >= 2:
+            # Mesmo com rostos pequenos, 2+ pessoas = foto casual
+            confidence = 0.95 if face_ratio > 0.15 else 0.85
+            return True, confidence, num_faces
 
-        # 2. Se tem 1 rosto MUITO grande e pouco texto = selfie/retrato
-        if num_faces == 1 and face_ratio > 0.25 and len(text_lower.strip()) < 20:
+        # 2. Se tem 1 rosto grande e pouco/sem texto = selfie/retrato
+        if num_faces == 1 and face_ratio > 0.20 and len(text_lower.strip()) < 50:
             return True, 0.85, num_faces
 
-        # 3. Se tem 3+ rostos (mesmo pequenos) = foto de grupo
-        if num_faces >= 3:
-            return True, 0.90, num_faces
+        # 3. Se tem 1 rosto médio e NENHUM texto de documento
+        if num_faces == 1 and face_ratio > 0.10 and len(text_lower.strip()) < 10:
+            return True, 0.75, num_faces
 
         # Caso contrário: provavelmente é documento com foto
         return False, 0.0, num_faces
@@ -1133,7 +1135,7 @@ def classify_document_hybrid(file_path, api_key=None, categories=None):
     # 1.5. DETECÇÃO DE FOTOS DE PESSOAS (antes de outras classificações)
     # Evita conflito com documentos que contêm fotos (RG, CNH, Passaporte)
     is_people_photo, photo_confidence, num_faces = detect_people_photo(file_path, text_content)
-    if is_people_photo and photo_confidence > 0.80:
+    if is_people_photo and photo_confidence > 0.70:  # Reduzido de 0.80 para 0.70 (mais sensível)
         print(f"✓ FOTO DE PESSOAS detectada: {num_faces} rosto(s), confiança {photo_confidence:.2f}")
         return {
             'category': 'fotos_pessoas',
