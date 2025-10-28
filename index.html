@@ -1072,18 +1072,19 @@
         try {
           const statusRes = await fetch(`${API_URL}/classify/status/${sessionId}`);
 
-          // Se 404, servidor ainda não tem endpoint de polling (versão antiga)
+          // Se 404, sessão perdida (servidor reiniciou) - reprocessar
           if (statusRes.status === 404) {
-            console.warn('Servidor sem suporte a polling assíncrono - aguardando rebuild...');
+            console.warn('Sessão perdida (servidor reiniciou). Favor fazer upload novamente.');
             summary.innerHTML = `
-              <div class="summary" style="color: var(--accent-warning);">
-                <i class="fas fa-sync fa-spin"></i>
-                Aguardando deploy do servidor... Por favor, tente novamente em alguns minutos.
+              <div class="summary" style="color: var(--accent-danger);">
+                <i class="fas fa-exclamation-triangle"></i>
+                Servidor foi reiniciado. Por favor, faça upload dos documentos novamente.
               </div>
             `;
-            showNotification('Servidor atualizando. Aguarde alguns minutos e tente novamente.', 'warning');
+            showNotification('⚠️ Servidor reiniciado. Faça upload novamente.', 'error');
             setButtonLoading(btnClassify, false);
             btnClassify.innerHTML = '<i class="fas fa-magic"></i> Classificar Documentos';
+            resetUploadForm();
             return;
           }
 
