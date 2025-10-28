@@ -109,7 +109,6 @@ DOCUMENT_TYPES = {
     'attestation_honneur': 'Declaração',
     'attestation_depot': 'Comprovante de Depósito',
     'passeport': 'Passaporte',
-    'conta_telefone': 'Conta de Telefone',
     # Fotos pessoais (não confundir com documentos que contêm fotos)
     'fotos_pessoas': 'Fotos de Pessoas',
     'outros': 'Outros Documentos'
