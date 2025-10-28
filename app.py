@@ -13,7 +13,6 @@ import os
 import base64
 import zipfile
 import io
-from openai import OpenAI
 from werkzeug.utils import secure_filename
 import shutil
 from datetime import datetime
@@ -1069,22 +1068,11 @@ def classify_offline_fallback(file_path, categories=None, text=None):
     }
 
 def test_openai_connection(api_key):
-    """Testa a conexão com a API OpenAI"""
-    try:
-        client = OpenAI(api_key=api_key)
-        # Faz uma chamada simples para testar a conexão
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "Test"}],
-            max_tokens=1,
-            timeout=10
-        )
-        return True, "Conexão OK"
-    except Exception as e:
-        return False, str(e)
+    """Função desabilitada - não usa mais OpenAI"""
+    return True, "OCR-only mode"
 
-def classify_document_hybrid(file_path, api_key, categories=None):
-    """Classificação híbrida melhorada: combina assertividade de regras e IA"""
+def classify_document_hybrid(file_path, api_key=None, categories=None):
+    """Classificação baseada em OCR + Regras (sem IA)"""
     if categories is None:
         categories = load_categories()
 
@@ -1181,18 +1169,19 @@ def classify_document_hybrid(file_path, api_key, categories=None):
             'confidence': 'N/A'
         }
 
-    if rule_result['category'] != 'outros' and isinstance(rule_result['confidence'], (int, float)) and rule_result['confidence'] >= use_ai_threshold:
-        # Alta confiança nas regras, não precisa de IA
-        print(f"Alta confiança nas regras ({rule_result['confidence']:.2f}), pulando IA para economizar")
+    # Retorna resultado das regras (sem IA)
+    if rule_result['category'] != 'outros':
+        print(f"Classificação por regras: {rule_result['category']} ({rule_result['confidence']})")
         learning_system.record_classification(filename, rule_result['category'], rule_result['confidence'], text_content)
         return {
             'category': rule_result['category'],
             'category_name': rule_result['category_name'],
-            'method': 'rules_high_confidence_no_ai',
+            'method': 'rules_ocr_only',
             'confidence': rule_result['confidence']
         }
 
-    if rule_result['category'] != 'outros' and rule_result['confidence'] >= confidence_threshold:
+    # Categoria "outros" - sem IA
+    if False:
         # Aplica IA apenas para validação cruzada com threshold mais alto
         if api_key:
             try:
@@ -1335,11 +1324,13 @@ def classify_document_hybrid(file_path, api_key, categories=None):
     return rule_result
 
 def classify_with_ai(file_path, api_key, categories):
-    """Classificação usando apenas IA (função auxiliar)"""
-    filename = os.path.basename(file_path)
-    text_content = extract_text_from_file(file_path)
-    
-    client = OpenAI(api_key=api_key)
+    """Função desabilitada - não usa mais IA"""
+    return {
+        'category': 'outros',
+        'category_name': 'Outros Documentos',
+        'method': 'disabled',
+        'confidence': 0.0
+    }
     
     # Lista de categorias disponíveis
     categories_list = list(categories.keys())
@@ -1442,76 +1433,8 @@ def classify_document(file_path, api_key, categories=None):
 
 
 def classify_with_openai_api(filename, text_content, api_key, categories):
-    """Classifica documento usando a API OpenAI"""
-    try:
-        client = OpenAI(api_key=api_key)
-        
-        # Prepara informações do documento
-        document_info = f"Nome do arquivo: {filename}"
-        if text_content:
-            document_info += f"\n\nConteúdo extraído:\n{text_content[:2000]}"  # Limita o texto
-        
-        # Lista de categorias para o prompt
-        categories_list = "\n".join([f'- "{name}" → {key}' for key, name in categories.items()])
-        
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"""Você é um especialista em classificação de documentos. 
-                    Analise o documento fornecido e classifique-o em uma das seguintes categorias:
-                    
-                    {categories_list}
-                    
-                    Responda APENAS com o nome da categoria (chave), sem explicações adicionais.
-                    Se não conseguir identificar claramente, use 'outros'."""
-                },
-                {
-                    "role": "user", 
-                    "content": f"Classifique este documento:\n\n{document_info}"
-                }
-            ],
-            max_tokens=50,
-            temperature=0.1
-        )
-        
-        category = response.choices[0].message.content.strip().lower()
-        
-        # Valida se a categoria retornada existe
-        if category not in categories:
-            category = 'outros'
-        
-        # Registra a classificação no sistema de aprendizado
-        api_confidence = 1.0  # Confiança padrão da API
-        learning_system.record_classification(filename, category, api_confidence, text_content)
-        
-        return {
-            'category': category,
-            'category_name': categories[category],
-            'method': 'openai_api',
-            'confidence': api_confidence
-        }
-        
-    except Exception as api_error:
-        error_msg = str(api_error)
-        print(f"Erro detalhado na API OpenAI: {error_msg}")
-        print(f"Tipo do erro: {type(api_error).__name__}")
-        print(f"Arquivo sendo processado: {file_path}")
-        
-        # Verifica se é erro de autenticação
-        if "authentication" in error_msg.lower() or "api key" in error_msg.lower():
-            print("ERRO: Chave da API OpenAI inválida ou não configurada!")
-        
-        # Usa fallback offline em caso de erro
-        print(f"Usando classificação offline para: {os.path.basename(file_path)}")
-        result = classify_offline_fallback(file_path, categories)
-        
-        # Registra a classificação offline no sistema de aprendizado
-        offline_confidence = 0.5  # Confiança menor para classificação offline
-        learning_system.record_classification(filename, result['category'], offline_confidence, text_content)
-        
-        return result
+    """Função desabilitada - não usa mais OpenAI"""
+    return 'outros', 0.0
 
 @app.route('/api/feedback', methods=['POST'])
 def submit_feedback():
@@ -1653,12 +1576,8 @@ def upload_files():
 
     files = request.files.getlist('files[]')
 
-    # Limitar batch size para 512MB RAM (5 arquivos = ultra estável)
-    MAX_FILES_SAFE = 5
-    if len(files) > MAX_FILES_SAFE:
-        return jsonify({
-            'error': f'Limite de {MAX_FILES_SAFE} arquivos por vez para estabilidade.'
-        }), 400
+    # SEM LIMITES DE ARQUIVOS! Processa quantos arquivos forem enviados
+    print(f"📄 Processando {len(files)} arquivo(s) - SEM LIMITES!")
 
     api_key = request.form.get('api_key', '')  # API key opcional
 
