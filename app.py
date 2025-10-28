@@ -298,7 +298,13 @@ def preprocess_image_for_ocr(image):
     OTIMIZADO: Modo simplificado em produção (Render) para velocidade
     """
     try:
-        is_production = os.environ.get('RENDER') is not None
+        # Detecta produção (qualquer VPS/cloud)
+        is_production = (
+            os.environ.get('RENDER') is not None or
+            os.environ.get('FLASK_ENV') == 'production' or
+            os.environ.get('PRODUCTION') == 'true' or
+            not os.environ.get('DEBUG', '').lower() in ['true', '1', 'yes']
+        )
 
         # Converte PIL Image para numpy array (OpenCV)
         img_array = np.array(image)
@@ -522,10 +528,11 @@ def extract_text_from_file(file_path):
                         print(f"  Pré-processando página {page_num + 1}...")
                         processed_image = preprocess_image_for_ocr(image)
 
-                        # Aplica OCR com configuração otimizada
+                        # Aplica OCR com configuração otimizada e RÁPIDA
                         try:
-                            custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
-                            page_ocr_text = pytesseract.image_to_string(processed_image, lang='por+fra+eng', config=custom_config)
+                            # OTIMIZAÇÃO: Usa apenas português (3x mais rápido que multi-idioma)
+                            custom_config = r'--oem 3 --psm 6'
+                            page_ocr_text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
                             total_ocr_text += page_ocr_text + "\n"
                             print(f"  Página {page_num + 1}: {len(page_ocr_text)} caracteres extraídos via OCR")
                         except Exception as ocr_error:
@@ -553,7 +560,9 @@ def extract_text_from_file(file_path):
                             processed_image = preprocess_image_for_ocr(image)
                             # Aplica OCR
                             custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
-                            page_ocr_text = pytesseract.image_to_string(processed_image, lang='por+fra+eng', config=custom_config)
+                            # OTIMIZAÇÃO: Apenas português (3x mais rápido)
+                            custom_config = r'--oem 3 --psm 6'
+                            page_ocr_text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
                             total_ocr_text += page_ocr_text + "\n"
                             print(f"  Página {idx + 1}: {len(page_ocr_text)} caracteres via OCR")
 
@@ -589,7 +598,9 @@ def extract_text_from_file(file_path):
 
                 # Tenta com múltiplos idiomas simultaneamente
                 try:
-                    text = pytesseract.image_to_string(processed_image, lang='por+fra+eng', config=custom_config)
+                    # OTIMIZAÇÃO: Apenas português (3x mais rápido)
+                    custom_config = r'--oem 3 --psm 6'
+                    text = pytesseract.image_to_string(processed_image, lang='por', config=custom_config)
                     print(f"  OCR multi-idioma: {len(text)} caracteres extraídos")
                 except Exception as e:
                     print(f"  Erro com multi-idioma: {e}, tentando apenas português...")

@@ -1121,8 +1121,8 @@
             throw new Error(statusData.error || 'Erro desconhecido no processamento');
           }
 
-          // Aguarda 2 segundos antes de checar novamente
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Aguarda 5 segundos antes de checar novamente (reduz de 30 req/min para 12 req/min)
+          await new Promise(resolve => setTimeout(resolve, 5000));
           attempts++;
 
         } catch (error) {
