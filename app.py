@@ -1726,6 +1726,9 @@ def classify_documents():
 
         # CRÍTICO: Inicializa job ANTES de iniciar thread (evita race condition)
         files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
+
+        print(f"[CLASSIFY] Session {session_id}: {len(files)} arquivos encontrados")
+
         with jobs_lock:
             processing_jobs[session_id] = {
                 'status': 'processing',
@@ -1734,6 +1737,8 @@ def classify_documents():
                 'results': [],
                 'error': ''
             }
+            print(f"[CLASSIFY] Job criado para session {session_id}")
+            print(f"[CLASSIFY] Sessions ativas: {list(processing_jobs.keys())}")
 
         # Inicia processamento em background thread
         thread = threading.Thread(
@@ -1758,11 +1763,17 @@ def classify_documents():
 @app.route('/api/classify/status/<session_id>', methods=['GET'])
 def get_classification_status(session_id):
     """Retorna o status do processamento assíncrono"""
+    print(f"[STATUS CHECK] Session ID: {session_id}")
+    print(f"[STATUS CHECK] Jobs disponíveis: {list(processing_jobs.keys())}")
+
     with jobs_lock:
         if session_id not in processing_jobs:
-            return jsonify({'error': 'Sessão não encontrada'}), 404
+            print(f"[ERRO 404] Sessão {session_id} não encontrada")
+            print(f"[ERRO 404] Sessions ativas: {list(processing_jobs.keys())}")
+            return jsonify({'error': 'Sessão não encontrada', 'available_sessions': list(processing_jobs.keys())}), 404
 
         job = processing_jobs[session_id]
+        print(f"[STATUS OK] Status: {job['status']}, Progress: {job['progress']}/{job['total']}")
         return jsonify({
             'status': job['status'],
             'progress': job['progress'],
