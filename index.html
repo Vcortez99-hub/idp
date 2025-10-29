@@ -677,7 +677,7 @@
             <i class="fas fa-file-upload"></i>
             <p>Arraste arquivos aqui ou clique para selecionar</p>
             <small>Formatos: PDF, PNG, JPG, JPEG (até 100MB cada)</small>
-            <small style="display: block; margin-top: 0.25rem; color: var(--accent-warning);">⚠️ Limite: 15 arquivos por vez</small>
+            <small style="display: block; margin-top: 0.25rem; color: var(--accent-success);">✓ Processamento em lotes otimizado (até 200 arquivos)</small>
           </div>
           <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg" style="display: none;">
           <button id="btnUpload" disabled style="margin-top: 1.5rem;">
@@ -1236,8 +1236,8 @@
       e.preventDefault();
       fileDrop.classList.remove('dragover');
 
-      if (e.dataTransfer.files.length > 15) {
-        showNotification('❌ Limite máximo: 15 arquivos por vez', 'error');
+      if (e.dataTransfer.files.length > 200) {
+        showNotification('❌ Limite máximo: 200 arquivos por vez', 'error');
         return;
       }
 
@@ -1247,8 +1247,8 @@
     });
 
     fileInput.addEventListener('change', () => {
-      if (fileInput.files.length > 15) {
-        showNotification('❌ Limite máximo: 15 arquivos por vez', 'error');
+      if (fileInput.files.length > 200) {
+        showNotification('❌ Limite máximo: 200 arquivos por vez', 'error');
         fileInput.value = '';
         btnUpload.disabled = true;
         return;

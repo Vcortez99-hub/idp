@@ -49,6 +49,10 @@ cache_lock = threading.Lock()
 MAX_CACHE_SIZE = 100  # Máximo de arquivos em cache
 CACHE_EXPIRY = 3600  # Cache expira em 1 hora
 
+# OTIMIZAÇÃO: Processamento em lotes
+BATCH_SIZE = 5  # Processa 5 arquivos por vez para economizar memória
+MAX_CONCURRENT_THREADS = 2  # Máximo de threads simultâneas para OCR
+
 # Configuração de pastas para produção
 if os.environ.get('RENDER'):
     # Ambiente de produção no Render
@@ -1652,84 +1656,116 @@ def upload_files():
         'count': len(uploaded_files)
     })
 
+def process_single_file(filename, file_path, api_key, categories, use_offline_mode):
+    """Processa um único arquivo (para uso em threads)"""
+    try:
+        text_content = extract_text_from_file(file_path)
+
+        if use_offline_mode:
+            classification = classify_offline_fallback(file_path, categories, text_content)
+        else:
+            classification = classify_document(file_path, api_key, categories)
+
+        ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
+
+        suggested_filename = filename
+        if classification['category'] == 'bulletin_salaire':
+            mes, ano = extract_month_year_from_bulletin(text_content)
+            if mes and ano:
+                meses_nome = {
+                    '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
+                    '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
+                    '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
+                }
+                mes_nome = meses_nome.get(mes, mes)
+                suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
+
+        return {
+            'filename': filename,
+            'suggested_filename': suggested_filename,
+            'category': classification['category'],
+            'category_name': classification['category_name'],
+            'confidence': classification.get('confidence', 0.0),
+            'method': classification.get('method', 'unknown'),
+            'ocr_confidence': round(ocr_confidence, 2),
+            'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower()
+        }
+    except Exception as e:
+        print(f"[BATCH] Erro ao processar {filename}: {str(e)}")
+        return {
+            'filename': filename,
+            'category': 'outros',
+            'category_name': categories.get('outros', 'Outros Documentos'),
+            'error': str(e)
+        }
+
 def process_documents_async(session_id, api_key, categories, use_offline_mode):
-    """Processa documentos em background thread"""
+    """Processa documentos em background thread COM PROCESSAMENTO EM LOTES"""
     try:
         session_folder = os.path.join(UPLOAD_FOLDER, session_id)
         files = [f for f in os.listdir(session_folder) if os.path.isfile(os.path.join(session_folder, f))]
         total_files = len(files)
 
-        print(f"[ASYNC] Iniciando classificação de {total_files} arquivos...")
+        print(f"[BATCH] 🚀 Iniciando processamento de {total_files} arquivos em lotes de {BATCH_SIZE}")
         results = []
 
-        for idx, filename in enumerate(files, 1):
-            file_path = os.path.join(session_folder, filename)
-            print(f"[ASYNC] Processando arquivo {idx}/{total_files}: {filename}")
+        # Processa arquivos em lotes para economizar memória
+        for batch_start in range(0, total_files, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total_files)
+            batch_files = files[batch_start:batch_end]
 
-            try:
-                text_content = extract_text_from_file(file_path)
-                print(f"[ASYNC]   OCR extraiu {len(text_content)} caracteres")
+            print(f"[BATCH] 📦 Lote {batch_start//BATCH_SIZE + 1}/{(total_files + BATCH_SIZE - 1)//BATCH_SIZE}: processando arquivos {batch_start+1}-{batch_end}")
 
-                if use_offline_mode:
-                    classification = classify_offline_fallback(file_path, categories, text_content)
-                else:
-                    classification = classify_document(file_path, api_key, categories)
+            # Processa lote com threads limitadas
+            batch_results = []
+            threads = []
 
-                ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
+            for filename in batch_files:
+                file_path = os.path.join(session_folder, filename)
 
-                suggested_filename = filename
-                if classification['category'] == 'bulletin_salaire':
-                    mes, ano = extract_month_year_from_bulletin(text_content)
-                    if mes and ano:
-                        meses_nome = {
-                            '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
-                            '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
-                            '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
-                        }
-                        mes_nome = meses_nome.get(mes, mes)
-                        suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
+                # Limita threads simultâneas
+                while len([t for t in threads if t.is_alive()]) >= MAX_CONCURRENT_THREADS:
+                    time.sleep(0.1)
 
-                result = {
-                    'filename': filename,
-                    'suggested_filename': suggested_filename,
-                    'category': classification['category'],
-                    'category_name': classification['category_name'],
-                    'confidence': classification.get('confidence', 0.0),
-                    'method': classification.get('method', 'unknown'),
-                    'ocr_confidence': round(ocr_confidence, 2),
-                    'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower()
-                }
-                results.append(result)
+                # Processa arquivo em thread
+                result_container = []
+                thread = threading.Thread(
+                    target=lambda: result_container.append(
+                        process_single_file(filename, file_path, api_key, categories, use_offline_mode)
+                    )
+                )
+                thread.result_container = result_container
+                thread.start()
+                threads.append(thread)
 
-                # Atualiza progresso
-                with jobs_lock:
-                    processing_jobs[session_id]['progress'] = idx
-                    processing_jobs[session_id]['results'] = results
+            # Aguarda todos os arquivos do lote
+            for thread in threads:
+                thread.join()
+                if thread.result_container:
+                    batch_results.append(thread.result_container[0])
 
-                print(f"[ASYNC]   ✓ {filename} classificado como: {classification['category_name']} (confiança: {classification.get('confidence', 'N/A')})")
+            # Adiciona resultados do lote
+            results.extend(batch_results)
 
-                # OTIMIZAÇÃO: Libera memória após processar cada arquivo (importante em ambientes com RAM limitada)
-                gc.collect()
+            # Atualiza progresso
+            with jobs_lock:
+                processing_jobs[session_id]['progress'] = len(results)
+                processing_jobs[session_id]['results'] = results
 
-            except Exception as e:
-                print(f"[ASYNC]   ✗ Erro ao classificar {filename}: {str(e)}")
-                results.append({
-                    'filename': filename,
-                    'category': 'outros',
-                    'category_name': categories.get('outros', 'Outros Documentos')
-                })
-                with jobs_lock:
-                    processing_jobs[session_id]['progress'] = idx
-                    processing_jobs[session_id]['results'] = results
+            print(f"[BATCH] ✓ Lote concluído: {len(results)}/{total_files} arquivos processados")
+
+            # Libera memória entre lotes
+            gc.collect()
+            time.sleep(0.5)  # Pequena pausa entre lotes
 
         # Marca como completo
         with jobs_lock:
             processing_jobs[session_id]['status'] = 'completed'
 
-        print(f"[ASYNC] Classificação concluída! {len(results)} arquivos processados.")
+        print(f"[BATCH] 🎉 Classificação concluída! {len(results)} arquivos processados em lotes.")
 
     except Exception as e:
-        print(f"[ASYNC] Erro na classificação: {str(e)}")
+        print(f"[BATCH] ❌ Erro na classificação: {str(e)}")
         with jobs_lock:
             processing_jobs[session_id]['status'] = 'error'
             processing_jobs[session_id]['error'] = str(e)
