@@ -225,15 +225,15 @@ def compress_image_for_ocr(image, max_size=2000):
 
 def detect_people_photo(file_path, text_content=""):
     """
-    Detecta se é foto de pessoas (casal, grupo, foto casual)
+    Detecta se é foto de pessoas (casal, grupo, selfie, paisagem, foto casual)
     NÃO CONFUNDE com documentos que contêm fotos (RG, CNH, Passaporte)
 
-    Retorna: (is_people_photo: bool, confidence: float, num_faces: int)
+    Retorna: (is_people_photo: bool, confidence: float, num_faces: int, photo_type: str)
     """
     try:
         # Se tiver muito texto, provavelmente é documento, não foto casual
         if text_content and len(text_content.strip()) > 100:
-            return False, 0.0, 0
+            return False, 0.0, 0, "document"
 
         # Palavras-chave que indicam DOCUMENTO (não foto casual)
         document_keywords = [
@@ -245,15 +245,15 @@ def detect_people_photo(file_path, text_content=""):
 
         text_lower = text_content.lower() if text_content else ""
         if any(keyword in text_lower for keyword in document_keywords):
-            return False, 0.0, 0  # É documento, não foto
+            return False, 0.0, 0, "document"  # É documento, não foto
 
         # Tenta carregar a imagem
         if file_path.lower().endswith('.pdf'):
-            return False, 0.0, 0  # PDFs não são fotos casuais
+            return False, 0.0, 0, "pdf"  # PDFs não são fotos casuais
 
         img = cv2.imread(file_path)
         if img is None:
-            return False, 0.0, 0
+            return False, 0.0, 0, "invalid"
 
         # Detecta rostos usando Haar Cascade (leve e rápido)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -267,9 +267,27 @@ def detect_people_photo(file_path, text_content=""):
         # Análise da imagem
         height, width = img.shape[:2]
         img_area = height * width
+        aspect_ratio = width / height if height > 0 else 1.0
 
+        # NOVA LÓGICA: Detecta paisagens e fotos sem rostos
         if num_faces == 0:
-            return False, 0.0, 0  # Sem rostos = não é foto de pessoas
+            # Verifica se é uma imagem fotográfica (não documento escaneado)
+            # Documentos geralmente têm alta variância de cores em áreas pequenas (texto)
+            # Fotos têm transições mais suaves
+
+            # Se não tem muito texto E é uma imagem colorida = provavelmente foto
+            has_little_text = len(text_lower.strip()) < 20
+
+            if has_little_text:
+                # Analisa se é foto (colorida, sem muito contraste típico de documentos)
+                hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+                saturation = hsv[:, :, 1].mean()  # Saturação média
+
+                # Fotos geralmente têm mais saturação que documentos escaneados
+                if saturation > 30:  # Limiar de saturação
+                    return True, 0.80, 0, "landscape"  # Paisagem/foto sem pessoas
+
+            return False, 0.0, 0, "no_faces"  # Não é foto de pessoas
 
         # Calcula área total dos rostos
         total_face_area = sum(w * h for (x, y, w, h) in faces)
@@ -280,22 +298,26 @@ def detect_people_photo(file_path, text_content=""):
         if num_faces >= 2:
             # Mesmo com rostos pequenos, 2+ pessoas = foto casual
             confidence = 0.95 if face_ratio > 0.15 else 0.85
-            return True, confidence, num_faces
+            return True, confidence, num_faces, "couple_group"
 
         # 2. Se tem 1 rosto grande e pouco/sem texto = selfie/retrato
         if num_faces == 1 and face_ratio > 0.20 and len(text_lower.strip()) < 50:
-            return True, 0.85, num_faces
+            return True, 0.90, num_faces, "selfie_portrait"
 
-        # 3. Se tem 1 rosto médio e NENHUM texto de documento
+        # 3. Se tem 1 rosto médio e NENHUM texto de documento = foto casual
         if num_faces == 1 and face_ratio > 0.10 and len(text_lower.strip()) < 10:
-            return True, 0.75, num_faces
+            return True, 0.85, num_faces, "single_person"
+
+        # 4. NOVO: Se tem 1 rosto pequeno mas sem texto = foto de pessoa em paisagem
+        if num_faces == 1 and face_ratio > 0.02 and len(text_lower.strip()) < 5:
+            return True, 0.75, num_faces, "person_landscape"
 
         # Caso contrário: provavelmente é documento com foto
-        return False, 0.0, num_faces
+        return False, 0.0, num_faces, "document_with_photo"
 
     except Exception as e:
         print(f"Erro ao detectar foto de pessoas: {e}")
-        return False, 0.0, 0
+        return False, 0.0, 0, "error"
 
 def preprocess_image_for_ocr(image):
     """Pré-processa imagem para melhorar precisão do OCR
@@ -1127,15 +1149,29 @@ def classify_document_hybrid(file_path, api_key=None, categories=None):
 
     # 1.5. DETECÇÃO DE FOTOS DE PESSOAS (antes de outras classificações)
     # Evita conflito com documentos que contêm fotos (RG, CNH, Passaporte)
-    is_people_photo, photo_confidence, num_faces = detect_people_photo(file_path, text_content)
+    is_people_photo, photo_confidence, num_faces, photo_type = detect_people_photo(file_path, text_content)
     if is_people_photo and photo_confidence > 0.70:  # Reduzido de 0.80 para 0.70 (mais sensível)
-        print(f"✓ FOTO DE PESSOAS detectada: {num_faces} rosto(s), confiança {photo_confidence:.2f}")
+        # Mensagem personalizada baseada no tipo de foto
+        if photo_type == "landscape":
+            detail_msg = "Paisagem/foto sem pessoas"
+        elif photo_type == "couple_group":
+            detail_msg = f'{num_faces} pessoa(s) detectada(s) - Casal/Grupo'
+        elif photo_type == "selfie_portrait":
+            detail_msg = "Selfie/Retrato"
+        elif photo_type == "single_person":
+            detail_msg = "1 pessoa detectada"
+        elif photo_type == "person_landscape":
+            detail_msg = "Pessoa em paisagem"
+        else:
+            detail_msg = f'{num_faces} pessoa(s) detectada(s)'
+
+        print(f"✓ FOTO DE PESSOAS detectada: {detail_msg}, confiança {photo_confidence:.2f}")
         return {
             'category': 'fotos_pessoas',
             'category_name': 'Fotos de Pessoas',
             'confidence': photo_confidence,
             'method': 'face_detection',
-            'details': f'{num_faces} pessoa(s) detectada(s)'
+            'details': detail_msg
         }
 
     # 2. Detecção aprimorada para documentos franceses específicos
