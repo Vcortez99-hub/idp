@@ -793,7 +793,6 @@ def classify_offline_fallback(file_path, categories=None, text=None):
         'conta_luz': ['conta', 'luz', 'energia', 'eletrica', 'cemig', 'copel', 'celpe'],
         'conta_agua': ['conta', 'agua', 'saneamento', 'sabesp', 'cedae'],
         'conta_gas': ['conta', 'gas', 'comgas', 'naturgy'],
-        'conta_telefone': ['conta', 'telefone', 'celular', 'tim', 'vivo', 'claro', 'oi', 'nextel', 'algar', 'telefonica', 'fatura', 'mobile', 'fixo', 'linha'],
         
         # Comprovantes de Pagamento
         'comprovante_pagamento': ['comprovante', 'pagamento'],
@@ -899,15 +898,6 @@ def classify_offline_fallback(file_path, categories=None, text=None):
             'holerite': ['demonstrativo de pagamento', 'folha de pagamento', 'salário base', 'desconto inss', 'salário líquido'],
             'comprovante_bancario': ['comprovante de operação bancária', 'agência', 'conta corrente', 'saldo disponível'],
             'extrato_bancario': ['extrato de conta corrente', 'movimentação bancária', 'saldo anterior', 'saldo atual'],
-            'conta_telefone': [
-                'fatura de telefone', 'conta de telefone', 'fatura celular', 'conta celular',
-                'tim', 'vivo', 'claro', 'oi', 'nextel', 'algar', 'telefônica',
-                'linha telefônica', 'plano pós-pago', 'plano pré-pago', 'serviços de telecomunicações',
-                'valor da fatura', 'vencimento da fatura', 'número da linha', 'consumo de dados',
-                'chamadas realizadas', 'sms enviados', 'internet móvel', 'roaming',
-                'anatel', 'agência nacional de telecomunicações', 'código de área',
-                'fatura detalhada', 'resumo da conta', 'débito automático'
-            ],
             'nota_fiscal': ['nota fiscal eletrônica', 'cnpj', 'valor total da nota', 'icms', 'danfe'],
             'atestado': ['atestado médico', 'cid-10', 'afastamento por', 'dias de repouso'],
             'certificado': ['certificado de conclusão', 'carga horária', 'aprovado com', 'instituição de ensino'],

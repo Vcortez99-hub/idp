@@ -187,7 +187,6 @@ class IntelligentLearningSystem:
             'conta_luz': ['conta de luz', 'energia elétrica', 'kwh', 'cemig', 'cpfl', 'eletropaulo'],
             'conta_agua': ['conta de água', 'saneamento', 'sabesp', 'copasa', 'águas'],
             'conta_gas': ['conta de gás', 'gás natural', 'comgás'],
-            'conta_telefone': ['conta de telefone', 'telefonia', 'vivo', 'tim', 'claro', 'oi'],
             'extrato_bancario': ['extrato', 'banco', 'saldo', 'movimentação', 'conta corrente'],
             'comprovante_residencia': ['comprovante de residência', 'endereço', 'residência'],
             'comprovante_renda': ['comprovante de renda', 'declaração de renda', 'rendimentos'],
