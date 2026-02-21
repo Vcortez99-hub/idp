@@ -63,7 +63,7 @@ else:
     UPLOAD_FOLDER = 'uploads'
     PROCESSED_FOLDER = 'processed'
 
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'zip', 'doc', 'docx', 'txt', 'tiff', 'tif', 'bmp', 'gif', 'webp'}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
@@ -142,6 +142,125 @@ def save_categories(categories):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def extract_zip_files(zip_path, destination_folder):
+    """Extrai arquivos de um ZIP e retorna lista de arquivos extraídos"""
+    extracted_files = []
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            for file_info in zip_ref.filelist:
+                if not file_info.is_dir():
+                    # Extrai apenas o nome do arquivo (remove pastas do ZIP)
+                    filename = os.path.basename(file_info.filename)
+                    if allowed_file(filename) and filename.lower() != 'zip':
+                        extracted_path = os.path.join(destination_folder, secure_filename(filename))
+                        with zip_ref.open(file_info) as source, open(extracted_path, 'wb') as target:
+                            target.write(source.read())
+                        extracted_files.append(filename)
+                        print(f"  Extraído: {filename}")
+        # Remove o ZIP original após extração
+        os.remove(zip_path)
+        print(f"✅ ZIP extraído: {len(extracted_files)} arquivo(s)")
+    except Exception as e:
+        print(f"❌ Erro ao extrair ZIP: {e}")
+    return extracted_files
+
+def convert_to_pdf(file_path):
+    """Converte imagens e documentos para PDF"""
+    try:
+        base_name = os.path.splitext(file_path)[0]
+        pdf_path = f"{base_name}.pdf"
+        ext = file_path.lower().split('.')[-1]
+
+        # Imagens: converte para PDF
+        if ext in ['png', 'jpg', 'jpeg', 'tiff', 'tif', 'bmp', 'gif', 'webp']:
+            img = Image.open(file_path)
+            # Converte para RGB se necessário
+            if img.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+
+            # Salva como PDF
+            img.save(pdf_path, 'PDF', resolution=100.0, quality=85)
+            os.remove(file_path)  # Remove original
+            print(f"  ✅ Convertido para PDF: {os.path.basename(pdf_path)}")
+            return pdf_path
+
+        # TXT: converte para PDF simples
+        elif ext == 'txt':
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+
+            c = canvas.Canvas(pdf_path, pagesize=A4)
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                text = f.read()
+                y = 800
+                for line in text.split('\n'):
+                    if y < 50:
+                        c.showPage()
+                        y = 800
+                    c.drawString(50, y, line[:100])  # Limita linha
+                    y -= 15
+            c.save()
+            os.remove(file_path)
+            print(f"  ✅ TXT convertido para PDF: {os.path.basename(pdf_path)}")
+            return pdf_path
+
+        # DOC/DOCX: tenta converter (requer LibreOffice/unoconv em produção)
+        elif ext in ['doc', 'docx']:
+            # Em produção, isso requer LibreOffice instalado
+            # Por enquanto, apenas retorna o caminho original
+            print(f"  ⚠️  DOC/DOCX não convertido (requer LibreOffice): {os.path.basename(file_path)}")
+            return file_path
+
+        return file_path
+
+    except Exception as e:
+        print(f"  ❌ Erro ao converter {file_path}: {e}")
+        return file_path
+
+def compress_large_pdf(file_path, max_size_mb=5):
+    """Comprime PDFs grandes reduzindo qualidade de imagens"""
+    try:
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+        if file_size_mb <= max_size_mb:
+            return file_path  # Não precisa comprimir
+
+        print(f"  📦 Comprimindo PDF grande ({file_size_mb:.1f}MB)...")
+
+        # Abre PDF e recomprime imagens
+        reader = PyPDF2.PdfReader(file_path)
+        writer = PyPDF2.PdfWriter()
+
+        for page in reader.pages:
+            writer.add_page(page)
+
+        # Salva com compressão
+        compressed_path = file_path.replace('.pdf', '_compressed.pdf')
+        with open(compressed_path, 'wb') as f:
+            writer.write(f)
+
+        # Verifica se conseguiu comprimir
+        new_size_mb = os.path.getsize(compressed_path) / (1024 * 1024)
+        if new_size_mb < file_size_mb * 0.8:  # Reduziu pelo menos 20%
+            os.remove(file_path)
+            os.rename(compressed_path, file_path)
+            print(f"  ✅ PDF comprimido: {file_size_mb:.1f}MB → {new_size_mb:.1f}MB")
+        else:
+            os.remove(compressed_path)
+            print(f"  ⚠️  Compressão não efetiva, mantendo original")
+
+        return file_path
+
+    except Exception as e:
+        print(f"  ❌ Erro ao comprimir PDF: {e}")
+        return file_path
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
@@ -322,7 +441,7 @@ def detect_people_photo(file_path, text_content=""):
 def preprocess_image_for_ocr(image):
     """Pré-processa imagem para melhorar precisão do OCR
 
-    OTIMIZADO: Modo simplificado em produção (Render) para velocidade
+    APRIMORADO: Múltiplas técnicas de pré-processamento adaptativo
     """
     try:
         # Detecta produção (qualquer VPS/cloud)
@@ -343,18 +462,37 @@ def preprocess_image_for_ocr(image):
             gray = img_array
 
         if is_production:
-            # MODO PRODUÇÃO: Processamento MÍNIMO e RÁPIDO (Render CPU fraca)
-            # Apenas redimensionamento leve + binarização simples
+            # MODO PRODUÇÃO APRIMORADO: Processamento rápido mas eficaz
             height, width = gray.shape
-            if height < 800 or width < 800:
-                scale_factor = 1.3
-                gray = cv2.resize(gray, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_LINEAR)
 
-            # Binarização Otsu apenas (muito rápida)
-            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # 1. Redimensionamento inteligente
+            if height < 1000 or width < 1000:
+                scale_factor = 1.5
+                gray = cv2.resize(gray, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_CUBIC)
 
-            print("  ⚡ Pré-processamento rápido (produção)")
-            return Image.fromarray(binary)
+            # 2. Equalização de histograma (melhora contraste)
+            gray = cv2.equalizeHist(gray)
+
+            # 3. Remoção de ruído leve (filtro Gaussiano)
+            gray = cv2.GaussianBlur(gray, (3, 3), 0)
+
+            # 4. Binarização adaptativa (melhor que Otsu para documentos variados)
+            binary = cv2.adaptiveThreshold(
+                gray, 255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY,
+                15,  # Tamanho do bloco
+                8    # Constante de subtração
+            )
+
+            # 5. Sharpening (aumenta nitidez do texto)
+            kernel_sharpen = np.array([[-1,-1,-1],
+                                      [-1, 9,-1],
+                                      [-1,-1,-1]])
+            sharpened = cv2.filter2D(binary, -1, kernel_sharpen)
+
+            print("  ⚡ Pré-processamento aprimorado (produção)")
+            return Image.fromarray(sharpened)
 
         # MODO DESENVOLVIMENTO: Processamento completo e de alta qualidade
         # 1. Redimensiona se a imagem for muito pequena (melhora OCR)
@@ -414,6 +552,92 @@ def preprocess_image_for_ocr(image):
     except Exception as e:
         print(f"  Erro no pré-processamento, usando imagem original: {e}")
         return image
+
+def extract_date_from_text(text, filename=""):
+    """Extrai data de um documento (texto ou nome do arquivo) para ordenação cronológica"""
+    if not text and not filename:
+        return None
+
+    combined_text = f"{text} {filename}".lower()
+
+    # Padrões de data mais comuns (do mais específico ao mais genérico)
+    date_patterns = [
+        # DD/MM/YYYY ou DD-MM-YYYY
+        r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})',
+        # YYYY-MM-DD (formato ISO)
+        r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',
+        # Mês por extenso (português e francês)
+        r'(\d{1,2})\s+(?:de\s+)?(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)[,\s]+(\d{4})',
+        # Apenas mês e ano: MM/YYYY ou Mês YYYY
+        r'(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)[,\s]+(\d{4})',
+        r'(\d{1,2})[/-](\d{4})',
+    ]
+
+    # Mapeamento de meses por extenso
+    month_map = {
+        'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04',
+        'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08',
+        'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12',
+        'janvier': '01', 'février': '02', 'mars': '03', 'avril': '04',
+        'mai': '05', 'juin': '06', 'juillet': '07', 'août': '08',
+        'septembre': '09', 'octobre': '10', 'novembre': '11', 'décembre': '12'
+    }
+
+    for pattern in date_patterns:
+        matches = re.search(pattern, combined_text, re.IGNORECASE)
+        if matches:
+            groups = matches.groups()
+
+            # Formato DD/MM/YYYY
+            if len(groups) == 3 and groups[0].isdigit() and groups[1].isdigit():
+                day, month, year = groups
+                if len(year) == 4:
+                    try:
+                        return datetime(int(year), int(month), int(day))
+                    except ValueError:
+                        # Tenta inverter (pode ser MM/DD/YYYY)
+                        try:
+                            return datetime(int(year), int(day), int(month))
+                        except ValueError:
+                            continue
+
+            # Formato YYYY-MM-DD
+            elif len(groups) == 3 and len(groups[0]) == 4:
+                year, month, day = groups
+                try:
+                    return datetime(int(year), int(month), int(day))
+                except ValueError:
+                    continue
+
+            # Formato com mês por extenso
+            elif len(groups) == 3 and not groups[1].isdigit():
+                day = groups[0]
+                month_name = groups[1].lower()
+                year = groups[2]
+                month = month_map.get(month_name)
+                if month:
+                    try:
+                        return datetime(int(year), int(month), int(day))
+                    except ValueError:
+                        continue
+
+            # Apenas mês e ano (por extenso)
+            elif len(groups) == 2 and not groups[0].isdigit():
+                month_name = groups[0].lower()
+                year = groups[1]
+                month = month_map.get(month_name)
+                if month:
+                    return datetime(int(year), int(month), 1)  # Dia 1
+
+            # Apenas mês e ano (numérico)
+            elif len(groups) == 2 and groups[0].isdigit():
+                month, year = groups
+                try:
+                    return datetime(int(year), int(month), 1)
+                except ValueError:
+                    continue
+
+    return None
 
 def extract_month_year_from_bulletin(text):
     """Extrai mês e ano de um bulletin de salaire francês"""
@@ -1649,7 +1873,7 @@ def upload_files():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
-    """Recebe múltiplos arquivos para upload"""
+    """Recebe múltiplos arquivos para upload com suporte a ZIP e conversão automática"""
     if 'files[]' not in request.files:
         return jsonify({'error': 'Nenhum arquivo enviado'}), 400
 
@@ -1664,23 +1888,88 @@ def upload_files():
     session_id = datetime.now().strftime('%Y%m%d_%H%M%S')
     session_folder = os.path.join(UPLOAD_FOLDER, session_id)
     os.makedirs(session_folder, exist_ok=True)
-    
+
     uploaded_files = []
     for file in files:
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             filepath = os.path.join(session_folder, filename)
             file.save(filepath)
-            uploaded_files.append({
-                'name': filename,
-                'path': filepath
-            })
-    
+
+            # Se for ZIP, extrai os arquivos
+            if filename.lower().endswith('.zip'):
+                print(f"📦 Extraindo ZIP: {filename}")
+                extracted = extract_zip_files(filepath, session_folder)
+                # Adiciona arquivos extraídos à lista
+                for extracted_name in extracted:
+                    extracted_path = os.path.join(session_folder, extracted_name)
+                    # Converte para PDF se necessário
+                    converted_path = convert_to_pdf(extracted_path)
+                    final_name = os.path.basename(converted_path)
+                    # Comprime se for PDF grande
+                    compress_large_pdf(converted_path)
+                    uploaded_files.append({
+                        'name': final_name,
+                        'path': converted_path
+                    })
+            else:
+                # Converte para PDF se não for PDF
+                converted_path = convert_to_pdf(filepath)
+                final_name = os.path.basename(converted_path)
+                # Comprime se for PDF grande
+                compress_large_pdf(converted_path)
+                uploaded_files.append({
+                    'name': final_name,
+                    'path': converted_path
+                })
+
     return jsonify({
         'session_id': session_id,
         'files': uploaded_files,
         'count': len(uploaded_files)
     })
+
+def generate_smart_filename(category, category_name, text_content, original_filename):
+    """Gera nome de arquivo inteligente baseado na categoria e conteúdo"""
+    ext = os.path.splitext(original_filename)[1]
+
+    # Extrai data do documento
+    doc_date = extract_date_from_text(text_content, original_filename)
+
+    # Regras específicas por categoria
+    if category == 'bulletin_salaire' or category == 'holerite':
+        mes, ano = extract_month_year_from_bulletin(text_content)
+        if mes and ano:
+            meses_nome = {
+                '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+                '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+                '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+            }
+            mes_nome = meses_nome.get(mes, mes)
+            return f"{category_name}_{mes_nome}_{ano}{ext}"
+
+    # Para documentos com data identificável
+    if doc_date:
+        date_str = doc_date.strftime('%Y-%m-%d')
+        return f"{category_name}_{date_str}{ext}"
+
+    # Para documentos específicos, tenta extrair informações relevantes
+    if category in ['rg', 'cpf', 'cnh', 'passaporte']:
+        # Extrai número do documento se possível
+        numbers = re.findall(r'\b\d{6,}\b', text_content)
+        if numbers:
+            return f"{category_name}_{numbers[0][:8]}{ext}"
+
+    # Nome padrão: Categoria + timestamp ou nome original limpo
+    clean_original = re.sub(r'[^\w\s-]', '', os.path.splitext(original_filename)[0])
+    clean_original = re.sub(r'[-\s]+', '_', clean_original)[:30]  # Limita tamanho
+
+    if clean_original and clean_original.lower() != category.lower():
+        return f"{category_name}_{clean_original}{ext}"
+
+    # Se nada funcionar, usa categoria + timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return f"{category_name}_{timestamp}{ext}"
 
 def process_single_file(filename, file_path, api_key, categories, use_offline_mode):
     """Processa um único arquivo (para uso em threads)"""
@@ -1694,17 +1983,16 @@ def process_single_file(filename, file_path, api_key, categories, use_offline_mo
 
         ocr_confidence = min(1.0, len(text_content) / 500) if text_content else 0.0
 
-        suggested_filename = filename
-        if classification['category'] == 'bulletin_salaire':
-            mes, ano = extract_month_year_from_bulletin(text_content)
-            if mes and ano:
-                meses_nome = {
-                    '01': 'Janvier', '02': 'Février', '03': 'Mars', '04': 'Avril',
-                    '05': 'Mai', '06': 'Juin', '07': 'Juillet', '08': 'Août',
-                    '09': 'Septembre', '10': 'Octobre', '11': 'Novembre', '12': 'Décembre'
-                }
-                mes_nome = meses_nome.get(mes, mes)
-                suggested_filename = f"Bulletin_de_salaire_{mes_nome}_{ano}.pdf"
+        # Gera nome de arquivo inteligente
+        suggested_filename = generate_smart_filename(
+            classification['category'],
+            classification['category_name'],
+            text_content,
+            filename
+        )
+
+        # Extrai data para ordenação
+        doc_date = extract_date_from_text(text_content, filename)
 
         return {
             'filename': filename,
@@ -1714,7 +2002,8 @@ def process_single_file(filename, file_path, api_key, categories, use_offline_mo
             'confidence': classification.get('confidence', 0.0),
             'method': classification.get('method', 'unknown'),
             'ocr_confidence': round(ocr_confidence, 2),
-            'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower()
+            'used_ai': 'ai' in classification.get('method', '').lower() or 'openai' in classification.get('method', '').lower(),
+            'document_date': doc_date.isoformat() if doc_date else None
         }
     except Exception as e:
         print(f"[BATCH] Erro ao processar {filename}: {str(e)}")
@@ -1722,7 +2011,8 @@ def process_single_file(filename, file_path, api_key, categories, use_offline_mo
             'filename': filename,
             'category': 'outros',
             'category_name': categories.get('outros', 'Outros Documentos'),
-            'error': str(e)
+            'error': str(e),
+            'document_date': None
         }
 
 def process_documents_async(session_id, api_key, categories, use_offline_mode):
@@ -1919,28 +2209,53 @@ def download_organized():
             print(f"Erro: Pasta da sessão não encontrada: {session_folder}")
             return jsonify({'error': 'Sessão não encontrada ou já foi processada'}), 404
 
+        # ORDENAÇÃO CRONOLÓGICA: Ordena documentos por data (se disponível)
+        def get_sort_key(item):
+            """Função para ordenar documentos cronologicamente"""
+            doc_date_str = item.get('document_date')
+            if doc_date_str:
+                try:
+                    return datetime.fromisoformat(doc_date_str)
+                except:
+                    pass
+            # Se não tem data, coloca no final (data futura)
+            return datetime(9999, 12, 31)
+
+        # Ordena por data (mais antigos primeiro)
+        sorted_classifications = sorted(classifications, key=get_sort_key)
+        print(f"📅 Documentos ordenados cronologicamente: {len(sorted_classifications)} arquivos")
+
         # Cria ZIP em memória
         zip_buffer = io.BytesIO()
 
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            # Organiza arquivos por categoria
-            for item in classifications:
+            # Organiza arquivos SEM pastas - apenas renomeação por categoria
+            # COM PREFIXO NUMÉRICO para manter ordem cronológica
+            for idx, item in enumerate(sorted_classifications, 1):
                 filename = item['filename']
+                category_key = item['category']
                 category_name = item['category_name']
                 suggested_filename = item.get('suggested_filename', filename)
+                doc_date_str = item.get('document_date')
 
                 source_path = os.path.join(session_folder, filename)
 
                 if os.path.exists(source_path):
-                    # Usa nome sugerido se disponível
-                    final_filename = suggested_filename if suggested_filename else filename
-                    # Adiciona arquivo no ZIP dentro da pasta da categoria
-                    zip_path = os.path.join(category_name, final_filename)
-                    zip_file.write(source_path, zip_path)
-                    if suggested_filename != filename:
-                        print(f"  Adicionado ao ZIP: {zip_path} (renomeado de {filename})")
+                    # Usa nome sugerido ou cria um baseado na categoria
+                    if suggested_filename:
+                        base_filename = suggested_filename
                     else:
-                        print(f"  Adicionado ao ZIP: {zip_path}")
+                        # Gera nome automático: Categoria_NomeOriginal.ext
+                        base_name, ext = os.path.splitext(filename)
+                        base_filename = f"{category_name}_{base_name}{ext}"
+
+                    # Adiciona prefixo numérico para manter ordem cronológica
+                    final_filename = f"{idx:03d}_{base_filename}"
+
+                    # Adiciona arquivo diretamente na raiz do ZIP (sem pastas)
+                    zip_file.write(source_path, final_filename)
+                    date_info = f" [{doc_date_str[:10]}]" if doc_date_str else ""
+                    print(f"  {idx:03d}. {final_filename}{date_info}")
                 else:
                     print(f"  Arquivo não encontrado: {source_path}")
 

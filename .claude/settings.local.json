@@ -38,7 +38,8 @@
       "Bash(chmod:*)",
       "Bash(bash:*)",
       "Bash(zip:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []
